@@ -1,6 +1,7 @@
 ﻿module FSharp.QueryProvider.ExpressionMatching
 
 open System.Linq.Expressions
+open System.Reflection
 
 type private et = ExpressionType
 
@@ -47,7 +48,7 @@ let (|CallIQueryable|_|) (e : Expression) =
     | Some m -> 
         if m.Arguments.Count > 0 then
             let first = m.Arguments |> Seq.head 
-            if typedefof<System.Linq.IQueryable>.IsAssignableFrom first.Type then
+            if typedefof<System.Linq.IQueryable>.GetTypeInfo().IsAssignableFrom first.Type then
                 let rest = m.Arguments |> Seq.skip(1)
                 Some (m, first, rest)
             else

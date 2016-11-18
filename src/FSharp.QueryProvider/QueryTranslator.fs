@@ -1,8 +1,10 @@
 ﻿namespace FSharp.QueryProvider
 
-type SqlDbType = System.Data.SqlDbType
+open MySql.Data.MySqlClient;
+open Microsoft.FSharp.Reflection
 
 open System.Linq.Expressions
+open System.Reflection
 open FSharp.QueryProvider
 open FSharp.QueryProvider.Expression
 open FSharp.QueryProvider.ExpressionMatching
@@ -16,7 +18,7 @@ module QueryTranslator =
     /// The different sql dialects to translate to.
     /// </summary>
     type QueryDialect = 
-    | SqlServer2012
+    | MySQL
 
     /// <summary>
     /// The type of query to create.
@@ -25,7 +27,7 @@ module QueryTranslator =
     | SelectQuery
     | DeleteQuery
 
-    let private defaultGetSql2012DBType (morP : TypeSource) : SqlDbType DBType =
+    let private defaultGetMySqlDBType (morP : TypeSource) : MySqlDbType DBType =
         let t = 
             match morP with 
             | Method m -> m.ReturnType
@@ -34,25 +36,25 @@ module QueryTranslator =
             | TypeSource.Type t -> t
         let t = unwrapType t
         match System.Type.GetTypeCode(t) with 
-        | System.TypeCode.Boolean -> DataType SqlDbType.Bit
-        | System.TypeCode.Byte -> DataType SqlDbType.TinyInt
-        | System.TypeCode.Char -> DataType SqlDbType.NVarChar
-        | System.TypeCode.DateTime -> DataType SqlDbType.DateTime2
-        | System.TypeCode.Decimal -> DataType SqlDbType.Decimal
-        | System.TypeCode.Double -> DataType SqlDbType.Float
-        | System.TypeCode.Int16 -> DataType SqlDbType.SmallInt
-        | System.TypeCode.Int32 -> DataType SqlDbType.Int
-        | System.TypeCode.Int64 -> DataType SqlDbType.BigInt
-        | System.TypeCode.SByte -> DataType SqlDbType.TinyInt
-        | System.TypeCode.Single -> DataType SqlDbType.Real
-        | System.TypeCode.String -> DataType SqlDbType.NVarChar
-        | System.TypeCode.UInt16 -> DataType SqlDbType.TinyInt
-        | System.TypeCode.UInt32 -> DataType SqlDbType.Int
-        | System.TypeCode.UInt64 -> DataType SqlDbType.BigInt
+        | System.TypeCode.Boolean -> DataType MySqlDbType.Bit
+        | System.TypeCode.Byte -> DataType MySqlDbType.Byte
+        | System.TypeCode.Char -> DataType MySqlDbType.VarChar
+        | System.TypeCode.DateTime -> DataType MySqlDbType.DateTime
+        | System.TypeCode.Decimal -> DataType MySqlDbType.Decimal
+        | System.TypeCode.Double -> DataType MySqlDbType.Double
+        | System.TypeCode.Int16 -> DataType MySqlDbType.Int16
+        | System.TypeCode.Int32 -> DataType MySqlDbType.Int32
+        | System.TypeCode.Int64 -> DataType MySqlDbType.Int64
+        | System.TypeCode.SByte -> DataType MySqlDbType.Byte
+        | System.TypeCode.Single -> DataType MySqlDbType.Float
+        | System.TypeCode.String -> DataType MySqlDbType.VarChar
+        | System.TypeCode.UInt16 -> DataType MySqlDbType.Int16
+        | System.TypeCode.UInt32 -> DataType MySqlDbType.Int32
+        | System.TypeCode.UInt64 -> DataType MySqlDbType.Int64
         | System.TypeCode.Empty -> Unhandled
         | System.TypeCode.Object -> 
             if t = typedefof<System.Guid> then
-                DataType SqlDbType.UniqueIdentifier
+                DataType MySqlDbType.VarChar
             else
                 Unhandled
         | _t -> Unhandled
@@ -71,8 +73,8 @@ module QueryTranslator =
                 PropertySets = []
             }
         else
-            if Microsoft.FSharp.Reflection.FSharpType.IsRecord t then
-                let fields = Microsoft.FSharp.Reflection.FSharpType.GetRecordFields t |> Seq.toList
+            if FSharpType.IsRecord t then
+                let fields = FSharpType.GetRecordFields t |> Seq.toList
 
                 let ctorArgs = fields |> Seq.mapi(fun i f ->
                     let selectIndex = (selectIndex + i)
@@ -116,8 +118,8 @@ module QueryTranslator =
         (topQuery : bool) 
         (t : System.Type) =
         // need to call a function here so that this can be extended
-        if Microsoft.FSharp.Reflection.FSharpType.IsRecord t then
-            let fields = Microsoft.FSharp.Reflection.FSharpType.GetRecordFields t |> Seq.toList
+        if FSharpType.IsRecord t then
+            let fields = FSharpType.GetRecordFields t |> Seq.toList
 
             let query = 
                 fields 
@@ -147,7 +149,7 @@ module QueryTranslator =
         createConstructionInfoForType 0 (Queryable.TypeSystem.getElementType (queryable.GetType())) returnType
 
     let private groupByMethodInfo = lazy (
-        typedefof<System.Linq.Enumerable>.GetMethods()
+        typedefof<System.Linq.Enumerable>.GetTypeInfo().GetMethods()
         |> Seq.filter(fun mi -> mi.Name = "GroupBy") 
         |> Seq.filter(fun mi -> 
             let args = mi.GetParameters()
@@ -174,7 +176,7 @@ module QueryTranslator =
     let translate 
         (_queryDialect : QueryDialect)
         (queryType : QueryType)
-        (getDBType : GetDBType<SqlDbType> option) 
+        (getDBType : GetDBType<MySqlDbType> option) 
         (getTableName : GetTableName option) 
         (getColumnName : GetColumnName option) 
         (expression : Expression) = 
@@ -184,11 +186,11 @@ module QueryTranslator =
             | Some g -> fun morP -> 
                 match g morP with
                 | Unhandled -> 
-                    match defaultGetSql2012DBType morP with
+                    match defaultGetMySqlDBType morP with
                     | Unhandled -> failwithf "Could not determine DataType for '%A' is not handled" morP
                     | r -> r
                 | r -> r
-            | None -> defaultGetSql2012DBType
+            | None -> defaultGetMySqlDBType
 
         let getColumnName =
             match getColumnName with
@@ -211,7 +213,7 @@ module QueryTranslator =
             columnNameUnique := (!columnNameUnique + 1)
             !columnNameUnique
 
-        let createParameter value = 
+        let createParameter value =
             let t = 
                 match (getDBType (TypeSource.Value value)) with
                 | Unhandled -> failwithf "Unable to determine sql data type for type '%s'" (value.GetType().Name)
@@ -323,15 +325,15 @@ module QueryTranslator =
                             failwithf "Methods not implemented: %s" methodNames
 
                         if last.IsSome then
-                            failwith "'last' operator has no translations for Sql Server"
+                            failwith "'last' operator has no translations for MySql"
                         if lastOrDefault.IsSome then
-                            failwith "'lastOrDefault' operator has no translations for Sql Server"
+                            failwith "'lastOrDefault' operator has no translations for MySql"
 
                         let tableAlias = (getTableAlias())
                         let map e = 
                             mapd {TableAlias = Some tableAlias; TopQuery = false} e
 
-                        let manualSqlQuery, (manualSqlParams : PreparedParameter<SqlDbType> list), manualSqlOverride = 
+                        let manualSqlQuery, (manualSqlParams : PreparedParameter<MySqlDbType> list), manualSqlOverride = 
                             match generateManualSqlQuery queryable with
                             | Some (q, p) -> q, p, true
                             | None -> [], [], false
@@ -371,7 +373,7 @@ module QueryTranslator =
                                         ["COUNT(*) "], [], (Some (createConstructionInfoForType 0 typedefof<int> Single))
                                     | None -> 
                                         if contains.IsSome || any.IsSome then
-                                            ["CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END "], [] , (Some (createConstructionInfoForType 0 typedefof<bool> Single))
+                                            ["CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END "], [] , (Some (createConstructionInfoForType 0 typedefof<bool> Single))
                                         else if sum.IsSome then
                                             let sum = sum.Value
                                             let l = getLambda(sum)
@@ -388,7 +390,7 @@ module QueryTranslator =
                                                         Some (createConstructionInfoForType 0 t (getReturnType()))
                                                     else
                                                         None
-                                                let q, p, _ = (l.Body |> map) 
+                                                let q, p, _ = (l.Body |> map)
                                                 q @ [" "], p, c
                                             match maxOrMin with 
                                             | Some m ->
@@ -412,30 +414,6 @@ module QueryTranslator =
                                                                 | MemberAccess m -> isParameter m.Expression
                                                                 | _ -> false
                                                                 
-//                                                            let queryArgs =
-//                                                                 m.Arguments 
-//                                                                 |> Seq.filter(isParameter)
-//
-//                                                            printfn "%A" queryArgs
-
-                                                            //let needsSelect = 
-//                                                                 |> Seq.map(fun m -> 
-//                                                                     let changed 
-//                                                                     m, m //changed
-//                                                                 )
-//                                                                 |> dict
-
-//                                                            let methodArgs = 
-//                                                                m.Arguments 
-//                                                                |> Seq.map(fun arg -> 
-//                                                                    if isParameter arg then
-//                                                                        arg
-//                                                                    else
-//                                                                        arg
-//                                                                )
-                                                           // let body = Expression.Call(m.Method, methodArgs)
-                                                            //let rewrittenExpression = Expression.Lambda(body, methodArgs)
-                                                            //printfn "%A" rewrittenExpression
                                                             //take arguments, map to new argument sequence
                                                             // check if the node type is parameter, transform it then
                                                             // select all arguments where node type is parameter
@@ -470,23 +448,6 @@ module QueryTranslator =
                                                         else 
                                                             [], [], None
 
-                                let topStatement = 
-                                    let count = 
-                                        if single.IsSome || singleOrDefault.IsSome then
-                                            Some 2
-                                        else if 
-                                            first.IsSome ||
-                                            firstOrDefault.IsSome ||
-                                            max.IsSome || 
-                                            min.IsSome then
-                                            Some 1
-                                        else
-                                            None
-
-                                    match count with
-                                    | Some i -> ["TOP "; i.ToString(); " "]
-                                    | None -> []
-
                                 let selectCtor = 
                                     match selectCtor with
                                     | Some selectCtor ->
@@ -516,14 +477,8 @@ module QueryTranslator =
                                     else 
                                         []
 
-                                frontSelect @ topStatement @ selectColumn, selectParameters, selectCtor
-//
-//                                if not manualSqlOverride then
-//                                    generate()
-//                                else if [count; contains; any; maxOrMin; select] |> Seq.exists(Option.isSome) then
-//                                    generate()
-//                                else
-//                                    [], [], []
+                                frontSelect @ selectColumn, selectParameters, selectCtor
+
                         let from = 
                             if not manualSqlOverride || needsSelect.Value then
                                 ["FROM ["; getTableName(queryable.ElementType); "] AS "; ] @ tableAlias
@@ -606,7 +561,24 @@ module QueryTranslator =
 
                                 [" ORDER BY "] @ colSorts, parameters, ctor
 
-                        let sql =  mainStatement @ manualSqlQuery @ whereClause @ orderByClause
+                        let limitStatement = 
+                            let count = 
+                                if single.IsSome || singleOrDefault.IsSome then
+                                    Some 2
+                                else if 
+                                    first.IsSome ||
+                                    firstOrDefault.IsSome ||
+                                    max.IsSome || 
+                                    min.IsSome then
+                                    Some 1
+                                else
+                                    None
+
+                            match count with
+                            | Some i -> ["LIMIT "; i.ToString(); " "]
+                            | None -> []
+
+                        let sql =  mainStatement @ manualSqlQuery @ whereClause @ orderByClause @ limitStatement
                         let parameters = manualSqlParams @ orderByParameters @ whereParameters @ selectParameters
                         let ctor = orderByCtor @ whereCtor @ selectCtor
                         Some (sql, parameters, ctor)
@@ -710,7 +682,7 @@ module QueryTranslator =
     /// </summary>
     /// <param name="connection"></param>
     /// <param name="preparedStatement"></param>
-    let createCommand (connection : System.Data.SqlClient.SqlConnection) (preparedStatement : PreparedStatement<SqlDbType>) =
+    let createCommand (connection : MySql.Data.MySqlClient.MySqlConnection) (preparedStatement : PreparedStatement<MySqlDbType>) =
         
         let cmd = connection.CreateCommand()
         cmd.CommandText <- preparedStatement.Text
@@ -718,7 +690,7 @@ module QueryTranslator =
             let sqlParam = cmd.CreateParameter()
             sqlParam.ParameterName <- param.Name
             sqlParam.Value <- param.Value
-            sqlParam.SqlDbType <- param.DbType
+            sqlParam.MySqlDbType <- param.DbType
             cmd.Parameters.Add(sqlParam) |> ignore
         cmd
 

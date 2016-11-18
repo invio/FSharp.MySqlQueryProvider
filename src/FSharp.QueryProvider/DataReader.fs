@@ -1,6 +1,7 @@
 ﻿module FSharp.QueryProvider.DataReader
 
 open System.Collections
+open System.Reflection;
 open Microsoft.FSharp.Reflection
 
 type ReturnType = 
@@ -44,10 +45,12 @@ let createTypeConstructionInfo t constructorArgs propertySets =
     }
 
 let isValueType (t : System.Type) =
-    t.IsValueType || t = typedefof<string>
+    let ti = t.GetTypeInfo()
+    ti.IsValueType || t = typedefof<string>
 let isOption (t : System.Type) = 
-    t.IsGenericType &&
-    t.GetGenericTypeDefinition() = typedefof<Option<_>>
+    let ti = t.GetTypeInfo()
+    ti.IsGenericType &&
+    ti.GetGenericTypeDefinition() = typedefof<Option<_>>
 
 let readBool (value : obj) = 
     match value with 
@@ -55,7 +58,7 @@ let readBool (value : obj) =
         match i with 
         | 0 -> false :> obj
         | 1 -> true :> obj
-        | i -> failwith "not a bit %i" i
+        | i -> failwithf "not a bit %i" i
     | :? bool as b -> b :> obj
     | x -> failwithf "unexpected type %s" (x.GetType().FullName)
 
@@ -95,6 +98,7 @@ and constructType reader typeCtor =
             value
 
     let t = typeCtor.Type
+    let ti = t.GetTypeInfo()
     if t = typedefof<string> ||
         t = typedefof<byte> ||
         t = typedefof<sbyte> ||
@@ -110,7 +114,7 @@ and constructType reader typeCtor =
         getValue (getSingleIndex())
     else if t = typedefof<bool> then
         getValue (getSingleIndex()) |> readBool 
-    else if t.IsEnum then
+    else if ti.IsEnum then
         getValue (getSingleIndex())
     else if isOption t then
         let i = getSingleIndex()
@@ -119,7 +123,7 @@ and constructType reader typeCtor =
         else
             let value = reader.GetValue (i)
             if value <> null then
-                t.GetMethod("Some").Invoke(null, [| value |])
+                ti.GetMethod("Some").Invoke(null, [| value |])
             else
                 None :> obj
     else
@@ -144,7 +148,7 @@ and constructType reader typeCtor =
                         |> Seq.mapi(fun i x -> 
                             let returnType = reader.GetFieldType i
                             let expectedType =
-                                if x.PropertyType.IsEnum then
+                                if x.PropertyType.GetTypeInfo().IsEnum then
                                     typedefof<int>
                                 else
                                     x.PropertyType
@@ -171,36 +175,6 @@ and constructType reader typeCtor =
         
         inst
 
-//let constructResults (reader : System.Data.IDataReader) (constructionInfo : ConstructionInfo) = 
-//    Seq.empty<obj>
-//    match constructionInfo.TypeOrLambda with
-//    | Lambda lCtor -> lCtor.
-//    
-////    match returnType with
-////    | Many -> 
-////        let listT = typedefof<System.Collections.Generic.List<_>>
-////        let conListT = listT.MakeGenericType([| t |])
-////        let addM = conListT.GetMethods() |> Seq.find(fun m -> m.Name = "Add")
-////        let inst = System.Activator.CreateInstance(conListT)
-////        while reader.Read() do
-////            let res = constructResult()
-////            addM.Invoke(inst, [|res|]) |> ignore
-////        inst
-////    | Single | SingleOrDefault ->
-////        if reader.Read() then
-////            let r = constructResult()
-////            if reader.Read() then
-////                raise (System.InvalidOperationException "Sequence contains more than one element")
-////            r
-////        else
-////            match returnType with
-////            | Single -> raise (System.InvalidOperationException "Sequence contains no elements")
-////            | SingleOrDefault -> 
-////                if isValueType t then
-////                    System.Activator.CreateInstance(t)
-////                else
-////                    null
-////            | _ -> failwith "shouldnt be here"
 let private moreThanOneMessage = "Sequence contains more than one element"
 let private noElementsMessage = "Sequence contains no elements"
 
@@ -213,7 +187,8 @@ let read (reader : System.Data.IDataReader) constructionInfo : obj =
     let getAll() = 
         let listT = typedefof<System.Collections.Generic.List<_>>
         let conListT = listT.MakeGenericType([| t |])
-        let addM = conListT.GetMethods() |> Seq.find(fun m -> m.Name = "Add")
+        let conListTInfo = conListT.GetTypeInfo()
+        let addM = conListTInfo.GetMethods() |> Seq.find(fun m -> m.Name = "Add")
         let inst = System.Activator.CreateInstance(conListT)
         while reader.Read() do
             let res = constructResult()
@@ -242,4 +217,4 @@ let read (reader : System.Data.IDataReader) constructionInfo : obj =
                         System.Activator.CreateInstance(t)
                     else
                         null
-                | _ -> failwith "shouldnt be here"
+                | _ -> failwith "shouldn't be here"

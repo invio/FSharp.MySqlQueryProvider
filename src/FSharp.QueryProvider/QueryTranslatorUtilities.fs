@@ -5,6 +5,7 @@ open FSharp.QueryProvider.PreparedQuery
 open FSharp.QueryProvider.Expression
 open FSharp.QueryProvider.ExpressionMatching
 open System.Linq.Expressions
+open System.Reflection
 
 open Microsoft.FSharp.Reflection
 
@@ -152,7 +153,7 @@ let unionExactlyOneCaseOneField t =
 /// <param name="t"></param>
 let rec unwrapType (t : System.Type) = 
     if isOption t then
-        t.GetGenericArguments() |> Seq.head |> unwrapType
+        t.GetTypeInfo().GetGenericArguments() |> Seq.head |> unwrapType
     else if t |> FSharpType.IsUnion then
         (unionExactlyOneCaseOneField t).PropertyType |> unwrapType
     else
@@ -176,10 +177,11 @@ let createParameter columnIndex value dbType =
 /// <param name="value"></param>
 let rec unwrapValue value = 
     let t = value.GetType()
+    let ti = t.GetTypeInfo()
     if t |> isOption then
-        t.GetMethod("get_Value").Invoke(value, [||]) |> unwrapValue
+        ti.GetMethod("get_Value").Invoke(value, [||]) |> unwrapValue
     else if t |> FSharpType.IsUnion then
-        t.GetMethod("get_Item").Invoke(value, [||]) |> unwrapValue
+        ti.GetMethod("get_Item").Invoke(value, [||]) |> unwrapValue
     else
         value
 

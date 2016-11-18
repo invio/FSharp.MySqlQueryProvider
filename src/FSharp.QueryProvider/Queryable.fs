@@ -21,7 +21,7 @@ module internal TypeSystem =
                 Some (typedefof<IEnumerable<_>>.MakeGenericType(seqType.GetElementType()))
             else 
                 let assigneable =
-                    match seqType.IsGenericType with
+                    match seqType.GetTypeInfo().IsGenericType with
                     | true ->
                         seqType.GetGenericArguments()
                         |> Seq.tryFind(fun (arg) -> 
@@ -39,8 +39,9 @@ module internal TypeSystem =
                     if iface.IsSome then
                         iface
                     else
-                        if seqType.BaseType <> null && seqType.BaseType <> typedefof<obj> then
-                            findIEnumerable(seqType.BaseType)
+                        let seqTypeInfo = seqType.GetTypeInfo()
+                        if seqTypeInfo.BaseType <> null && seqTypeInfo.BaseType <> typedefof<obj> then
+                            findIEnumerable(seqTypeInfo.BaseType)
                         else 
                             None
 
