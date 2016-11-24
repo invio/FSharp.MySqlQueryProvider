@@ -1,5 +1,5 @@
 ﻿module EmptyQueryProvider
-open FSharp.QueryProvider.Queryable
+open FSharp.MySqlQueryProvider.Queryable
 
 type EmptyQueryProvider() =
     inherit QueryProvider()

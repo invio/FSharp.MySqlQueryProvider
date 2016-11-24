@@ -2,10 +2,11 @@
 
 open System.Linq.Expressions
 
-open FSharp.QueryProvider
-open FSharp.QueryProvider.DataReader
+open FSharp.MySqlQueryProvider
+open FSharp.MySqlQueryProvider.DataReader
 open Models
 open LocalDataReader
+open Xunit
 
 type UnionEnum = 
     | One = 0

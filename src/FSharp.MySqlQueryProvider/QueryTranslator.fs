@@ -1,16 +1,18 @@
-﻿namespace FSharp.QueryProvider
+﻿namespace FSharp.MySqlQueryProvider
 
 open MySql.Data.MySqlClient;
 open Microsoft.FSharp.Reflection
 
+open System
+open System.Linq
 open System.Linq.Expressions
 open System.Reflection
-open FSharp.QueryProvider
-open FSharp.QueryProvider.Expression
-open FSharp.QueryProvider.ExpressionMatching
-open FSharp.QueryProvider.QueryTranslatorUtilities
-open FSharp.QueryProvider.DataReader
-open FSharp.QueryProvider.PreparedQuery
+open FSharp.MySqlQueryProvider
+open FSharp.MySqlQueryProvider.Expression
+open FSharp.MySqlQueryProvider.ExpressionMatching
+open FSharp.MySqlQueryProvider.QueryTranslatorUtilities
+open FSharp.MySqlQueryProvider.DataReader
+open FSharp.MySqlQueryProvider.PreparedQuery
 
 module QueryTranslator =
 
@@ -18,7 +20,7 @@ module QueryTranslator =
     /// The different sql dialects to translate to.
     /// </summary>
     type QueryDialect = 
-    | MySQL
+    | MySQL57
 
     /// <summary>
     /// The type of query to create.
@@ -73,24 +75,36 @@ module QueryTranslator =
                 PropertySets = []
             }
         else
-            if FSharpType.IsRecord t then
-                let fields = FSharpType.GetRecordFields t |> Seq.toList
+            let rec createConstructorInfoForPropertyType index (propertyType : System.Type) =
+                if propertyType = typedefof<bool> then
+                    Bool index
+                else if isEnumType propertyType then
+                    Enum {
+                        Type = propertyType
+                        Index = index
+                    }
+                else if isNullable propertyType then
+                    let underlyingType = Nullable.GetUnderlyingType(propertyType)
+                    Type {
+                        Type = propertyType
+                        ConstructorArgs = [(createConstructorInfoForPropertyType index underlyingType)]
+                        PropertySets = []
+                    }
+                else if isOption propertyType then
+                    Type {
+                        Type = propertyType
+                        ConstructorArgs = [Value index] 
+                        PropertySets = []
+                    }
+                else if isValueType propertyType then
+                    Value index
+                else
+                        failwith "non value property type not supported"
 
+            let createConstructorInfoFromProperties (fields : PropertyInfo list) =
                 let ctorArgs = fields |> Seq.mapi(fun i f ->
                     let selectIndex = (selectIndex + i)
-                    let t = f.PropertyType
-                    if t = typedefof<bool> then
-                        Bool selectIndex
-                    else if isValueType t then
-                        Value selectIndex
-                    else if isOption t then
-                        Type {
-                            Type = t
-                            ConstructorArgs = [Value selectIndex] 
-                            PropertySets = []
-                        }
-                    else
-                        failwith "non value type not supported"
+                    createConstructorInfoForPropertyType selectIndex f.PropertyType
                 )
                 
                 {
@@ -98,9 +112,22 @@ module QueryTranslator =
                     ConstructorArgs = ctorArgs
                     PropertySets = []
                 }
-                
+            if FSharpType.IsRecord t then
+                let fields = FSharpType.GetRecordFields t |> Seq.toList
+
+                createConstructorInfoFromProperties fields
             else
-                failwithf "not implemented type '%s'" t.Name
+                
+                let bindingFlags =
+                    BindingFlags.Public ||| BindingFlags.IgnoreCase
+                    |||BindingFlags.Instance ||| BindingFlags.FlattenHierarchy
+
+                let fields =
+                    t.GetConstructors().Single().GetParameters()
+                    |> Seq.toList
+                    |> List.map(fun parameter -> t.GetProperty(parameter.Name, bindingFlags))
+
+                createConstructorInfoFromProperties fields
 
     let private createConstructionInfoForType selectIndex (t : System.Type) returnType : ConstructionInfo =
         let typeCtor = createTypeConstructionInfo selectIndex t 
@@ -117,13 +144,11 @@ module QueryTranslator =
         (tableAlias : string list) 
         (topQuery : bool) 
         (t : System.Type) =
-        // need to call a function here so that this can be extended
-        if FSharpType.IsRecord t then
-            let fields = FSharpType.GetRecordFields t |> Seq.toList
 
+        let createTypeSelectFromProperties fields =
             let query = 
                 fields 
-                |> List.map(fun  f -> tableAlias @ [".["; getColumnName f; "]"]) 
+                |> List.map(fun  f -> tableAlias @ [".`"; getColumnName f; "`"]) 
                 |> List.interpolate([[", "]])
                 |> List.reduce(@)
 
@@ -142,8 +167,23 @@ module QueryTranslator =
                     None
 
             query, ctor
+
+        // need to call a function here so that this can be extended
+        if FSharpType.IsRecord t then
+            let fields = FSharpType.GetRecordFields t |> Seq.toList
+
+            createTypeSelectFromProperties fields
         else
-            failwith "not implemented, only records are currently implemented"
+            let bindingFlags =
+                BindingFlags.Public ||| BindingFlags.IgnoreCase
+                |||BindingFlags.Instance ||| BindingFlags.FlattenHierarchy
+
+            let fields =
+                t.GetConstructors().Single().GetParameters()
+                |> Seq.toList
+                |> List.map(fun parameter -> t.GetProperty(parameter.Name, bindingFlags))
+
+            createTypeSelectFromProperties fields
     
     let private createQueryableCtorInfo queryable returnType = 
         createConstructionInfoForType 0 (Queryable.TypeSystem.getElementType (queryable.GetType())) returnType
@@ -481,7 +521,7 @@ module QueryTranslator =
 
                         let from = 
                             if not manualSqlOverride || needsSelect.Value then
-                                ["FROM ["; getTableName(queryable.ElementType); "] AS "; ] @ tableAlias
+                                ["FROM `"; getTableName(queryable.ElementType); "` AS "; ] @ tableAlias
                             else 
                                 []
 
@@ -575,7 +615,7 @@ module QueryTranslator =
                                     None
 
                             match count with
-                            | Some i -> ["LIMIT "; i.ToString(); " "]
+                            | Some i -> [" LIMIT "; i.ToString()]
                             | None -> []
 
                         let sql =  mainStatement @ manualSqlQuery @ whereClause @ orderByClause @ limitStatement
@@ -583,12 +623,13 @@ module QueryTranslator =
                         let ctor = orderByCtor @ whereCtor @ selectCtor
                         Some (sql, parameters, ctor)
                     | None ->
-                        let simpleInvoke m = 
+                        let simpleInvoke m =
                             let v = invoke m
                             Some (v |> valueToQueryAndParam (getDBType (TypeSource.Value v)))
 
                         match m.Method.Name with
-                        | "Contains" | "StartsWith" | "EndsWith" as typeName when(m.Object.Type = typedefof<string>) ->
+                        | "Contains" | "StartsWith" | "EndsWith" as typeName
+                            when(m.Object <> null && m.Object.Type = typedefof<string>) ->
                             let value = (m.Arguments.Item(0)  :?> ConstantExpression).Value
                             let valQ, valP, valC = valueToQueryAndParam (getDBType (TypeSource.Value value)) value
                             let search =
@@ -600,14 +641,50 @@ module QueryTranslator =
                             let colQ, colP, colC = map(m.Object)
 
                             Some (colQ @ [" LIKE "] @ search, colP @ valP, colC @ valC)
-                        | "Invoke" | "op_Dereference" -> 
+                        | "Invoke" | "op_Dereference" ->
                             simpleInvoke m
                         | "Some" when (isOption m.Method.ReturnType) -> 
                             simpleInvoke m
                         | "get_None" when (isOption m.Method.ReturnType) -> 
                             let t = m.Method.ReturnType.GetGenericArguments() |> Seq.head
                             Some (createNull (getDBType (TypeSource.Type t)))
-                        | x -> 
+                        | "Contains" ->
+                            match m with
+                            | CallIEnumerable(_m, enumerableObject, args) ->
+                                let firstArg = args |> Seq.head
+                                let dbType = getDBType (TypeSource.Type firstArg.Type)
+                                let queryParams =
+                                    enumerableObject
+                                    |> Seq.cast<Object>
+                                    |> Seq.map(fun v -> valueToQueryAndParam dbType v)
+                                    |> Seq.toList
+
+                                let colQ, colP, colC = map(firstArg)
+                                let count = queryParams.Count()
+
+                                if count = 0 then
+                                    Some (colQ @ [" IN ()"], colP, colC)
+                                else
+                                    let inStatement =
+                                        queryParams
+                                        |> List.map (fun (a, _, _) -> a)
+                                        |> List.interpolate [[", "]]
+                                        |> List.reduce(@)
+
+                                    let valPs =
+                                        queryParams
+                                        |> List.map (fun (_, b, _) -> b)
+                                        |> List.reduce(@)
+
+                                    let valCs =
+                                        queryParams
+                                        |> List.map (fun (_, _, c) -> c)
+                                        |> List.reduce(@)
+
+                                    Some (colQ @ [" IN ("] @ inStatement @ [")"], colP @ valPs, colC @ valCs)
+                            | _ -> failwithf "Contains Method not supported for type."
+                        | x ->
+                            printfn "fails %O" m.Method.Name 
 //                            if typedefof<IQueryable>.IsAssignableFrom(m.Method.ReturnType) then
 //                                failwithf "Method '%s' is not implemented." x
 //                            else
@@ -644,7 +721,7 @@ module QueryTranslator =
                 | MemberAccess m ->
                     if m.Expression <> null && m.Expression.NodeType = ExpressionType.Parameter then
                         match context.TableAlias with
-                        | Some tableAlias -> Some (tableAlias @ [".["; getColumnName(m.Member); "]"], [], [])
+                        | Some tableAlias -> Some (tableAlias @ [".`"; getColumnName(m.Member); "`"], [], [])
                         | None -> failwith "cannot access member without tablealias being genned"
                     else
                         match getLocalValue m with

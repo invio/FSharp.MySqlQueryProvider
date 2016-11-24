@@ -1,6 +1,6 @@
-﻿module FSharp.QueryProvider.PreparedQuery
+﻿module FSharp.MySqlQueryProvider.PreparedQuery
 
-open FSharp.QueryProvider.DataReader
+open FSharp.MySqlQueryProvider.DataReader
 
 /// <summary>
 /// Represents a query parameter

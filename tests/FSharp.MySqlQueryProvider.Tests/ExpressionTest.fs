@@ -2,8 +2,8 @@
 
 open System.Linq.Expressions
 
-open FSharp.QueryProvider.ExpressionMatching
-open FSharp.QueryProvider.Expression
+open FSharp.MySqlQueryProvider.ExpressionMatching
+open FSharp.MySqlQueryProvider.Expression
 
 [<Fact>]
 let ``visit`` () =
@@ -30,23 +30,3 @@ let ``map``() =
         map(fun e -> Recurse, e.NodeType.ToString() ) source
         |> String.concat(",")
     Assert.Equal("Constant,Constant,Add", result)
-
-//[<Fact>]
-//let ``partialEvaluate``() =
-//    let localVal =  "local"
-//    let x = 
-//        <@ 
-//        let captured = localVal
-//        captured
-//        @>
-//
-//    let e = Microsoft.FSharp.Linq.RuntimeHelpers.LeafExpressionConverter.QuotationToExpression x
-//
-//    printfn "%A" e
-//    let source = Expression.Add(Expression.Constant(2), Expression.Constant(2))
-//    ignore()
-//
-//    let result = 
-//        map(fun e -> Recurse, e.NodeType.ToString() ) source
-//        |> String.concat(",")
-//    Assert.Equal("Constant,Constant,Add", result)

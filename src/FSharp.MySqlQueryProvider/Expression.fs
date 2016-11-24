@@ -1,4 +1,4 @@
-﻿module FSharp.QueryProvider.Expression
+﻿module FSharp.MySqlQueryProvider.Expression
 
 open System.Linq.Expressions
 

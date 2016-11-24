@@ -1,4 +1,4 @@
-﻿module FSharp.QueryProvider.LinqTypes
+﻿module FSharp.MySqlQueryProvider.LinqTypes
 
 open System.Linq
 type Grouping<'TKey, 'TElement>(key : 'TKey, values : seq<'TElement>) =

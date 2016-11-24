@@ -1,5 +1,7 @@
-﻿module FSharp.QueryProvider.ExpressionMatching
+﻿module FSharp.MySqlQueryProvider.ExpressionMatching
 
+open System.Collections
+open System.Collections.Generic
 open System.Linq.Expressions
 open System.Reflection
 
@@ -56,7 +58,40 @@ let (|CallIQueryable|_|) (e : Expression) =
         else 
             None
     | None -> None
+let (|CallIEnumerable|_|) (e : Expression) =
+    let makeExpressionReturn (m : MethodCallExpression) (e : Expression) args =
+        let enumerableObject = Expression.Lambda(e).Compile().DynamicInvoke() :?> IEnumerable
+        Some (m, enumerableObject, args)
 
+    let makeMemberReturn (m : MethodCallExpression) (me : MemberExpression) args =
+        let t =
+            match me.Member.MemberType with
+            | MemberTypes.Field -> (me.Member :?> FieldInfo).FieldType
+            | MemberTypes.Property -> (me.Member :?> PropertyInfo).PropertyType
+            | _ -> failwithf "The CallIEnumerable doesn't support MemberType %O" me.Member.MemberType
+        if not (typedefof<IEnumerable>.GetTypeInfo().IsAssignableFrom t) then
+            None
+        else
+            makeExpressionReturn m me args
+        
+    match compare e et.Call |> cast<MethodCallExpression> with
+    | Some m when(m.Object <> null) ->
+        match m.Object with
+        | :? MemberExpression as me ->
+            makeMemberReturn m (m.Object :?> MemberExpression) (m.Arguments |> Seq.toList)
+        | _ -> None
+            
+    | Some m when(m.Arguments.Count = 2) ->
+        let firstArg = m.Arguments |> Seq.head
+        let args = m.Arguments |> Seq.toList |> List.skip(1)
+        match firstArg with
+        | :? ConstantExpression as ce ->
+            makeExpressionReturn m ce args
+        | :? MemberExpression as me -> 
+            makeMemberReturn m me args
+        | _ -> None
+        
+    | None -> None
 let (|Coalesce|_|) (e : Expression) =
     compare e et.Coalesce
 let (|Conditional|_|) (e : Expression) =
@@ -203,3 +238,10 @@ let (|UnaryPlus|_|) (e : Expression) =
     compare e et.UnaryPlus
 let (|Unbox|_|) (e : Expression) =
     compare e et.Unbox
+
+
+
+let isEnumerableExpression expression =
+    match expression with
+    | CallIEnumerable(m, pi, args) -> Some (m, pi, args)
+    | _ -> None

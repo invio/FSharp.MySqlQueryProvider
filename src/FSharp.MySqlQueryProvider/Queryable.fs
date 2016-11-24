@@ -1,12 +1,14 @@
-﻿module FSharp.QueryProvider.Queryable
+﻿module FSharp.MySqlQueryProvider.Queryable
 
-open FSharp.QueryProvider
+open MySql.Data.MySqlClient
+open FSharp.MySqlQueryProvider
 
 open System.Reflection
 open System.Linq
 open System.Linq.Expressions
 open System.Collections
 open System.Collections.Generic
+open System.Runtime.InteropServices
 
 module internal TypeSystem = 
    
@@ -55,12 +57,10 @@ module internal TypeSystem =
 /// <summary>
 /// Type to remove boiler plate when implementing IQueryProvider
 /// </summary>
-type Query<'T>(provider : QueryProvider, expression : Expression option) as this = 
+type Query<'T>(provider : QueryProvider,
+               [<Optional; DefaultParameterValue(null)>] expression : Expression option) as this =
     
-    let hardExpression = 
-        match expression with 
-        | None -> Expression.Constant(this) :> Expression
-        | Some x -> x
+    let hardExpression = defaultArg expression (Expression.Constant(this) :> Expression)
 
     let mutable result : IEnumerable<'T> option = None
     let resultLock = obj()
@@ -134,40 +134,3 @@ and [<AbstractClass>] QueryProvider() =
 
 let makeQuery<'t> queryProvider =
     Query<'t>(queryProvider, None) :> System.Linq.IQueryable<'t>
-
-/// <summary>
-/// Reusable IQueryProvider for IDbConnection.
-/// </summary>
-/// <param name="getConnection">function to get an unopened IDbConnection</param> 
-/// <param name="getConnection">function that transforms a IDbConnection and Linq.Expression into a
-/// fully constructed IDbCommand and DataReader.ConstructionInfo </param> 
-/// <param name="onExecutingCommand">function fired right before executing the reader. The return `obj` is passed into `onExecutedCommand`</param>
-/// <param name="onExecutedCommand">function fired right after executing the reader.</param>
-type DBQueryProvider<'T when 'T :> System.Data.IDbConnection>
-    (
-    getConnection : unit -> 'T, 
-    translate : 'T -> Expression -> System.Data.IDbCommand * DataReader.ConstructionInfo,
-    onExecutingCommand : option<System.Data.IDbCommand -> System.Data.IDbCommand * obj>,
-    onExecutedCommand : option<System.Data.IDbCommand * obj -> unit>
-    ) =
-    inherit QueryProvider()
-    
-    override __.Execute expression =
-        try
-            use connection = getConnection()
-            let cmd, ctorInfo = translate connection expression
-
-            let cmd, userState = 
-                match onExecutingCommand with
-                | None -> cmd, null
-                | Some x -> x cmd
-
-            connection.Open()
-            use reader = cmd.ExecuteReader()
-            let res = DataReader.read reader ctorInfo
-            if onExecutedCommand.IsSome then onExecutedCommand.Value(cmd, userState)
-            res
-        with 
-        | e -> 
-            printfn "Exception during query Execute: %s" (e.ToString())
-            reraise ()

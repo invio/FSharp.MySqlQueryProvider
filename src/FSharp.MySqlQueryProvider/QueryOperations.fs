@@ -1,5 +1,5 @@
-﻿module FSharp.QueryProvider.QueryOperations
-open FSharp.QueryProvider.PreparedQuery
+﻿module FSharp.MySqlQueryProvider.QueryOperations
+open FSharp.MySqlQueryProvider.PreparedQuery
 
 type Sql = 
 | S of string

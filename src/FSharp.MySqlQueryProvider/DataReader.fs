@@ -1,8 +1,11 @@
-﻿module FSharp.QueryProvider.DataReader
+﻿module FSharp.MySqlQueryProvider.DataReader
 
+open System
 open System.Collections
-open System.Reflection;
+open System.Linq
+open System.Reflection
 open Microsoft.FSharp.Reflection
+open Invio.Extensions.Reflection
 
 type ReturnType = 
 | Single
@@ -17,6 +20,7 @@ and TypeOrValueOrLambdaConstructionInfo =
 | Type of TypeConstructionInfo
 | Value of int
 | Bool of int
+| Enum of EnumConstructionInfo
 | Lambda of LambdaConstructionInfo
 
 and TypeConstructionInfo = {
@@ -28,6 +32,11 @@ and TypeConstructionInfo = {
 and LambdaConstructionInfo = {
     Lambda : System.Linq.Expressions.LambdaExpression
     Parameters : TypeOrValueOrLambdaConstructionInfo seq
+}
+
+and EnumConstructionInfo = {
+    Type : System.Type
+    Index : int
 }
 
 type ConstructionInfo = {
@@ -51,6 +60,13 @@ let isOption (t : System.Type) =
     let ti = t.GetTypeInfo()
     ti.IsGenericType &&
     ti.GetGenericTypeDefinition() = typedefof<Option<_>>
+let isNullable (t : System.Type) = 
+    let ti = t.GetTypeInfo()
+    ti.IsGenericType &&
+    ti.GetGenericTypeDefinition() = typedefof<Nullable<_>>
+let isEnumType (t : System.Type) =
+    let ti = t.GetTypeInfo()
+    ti.IsEnum
 
 let readBool (value : obj) = 
     match value with 
@@ -78,14 +94,19 @@ and invokeLambda reader lambdaCtor =
             | TypeOrValueOrLambdaConstructionInfo.Type typeCtor -> constructType reader typeCtor
             | TypeOrValueOrLambdaConstructionInfo.Lambda lambdaCtor -> invokeLambda reader lambdaCtor
             | TypeOrValueOrLambdaConstructionInfo.Value i -> reader.GetValue i
-            | TypeOrValueOrLambdaConstructionInfo.Bool i -> readBool ((reader.GetValue i)))
+            | TypeOrValueOrLambdaConstructionInfo.Bool i -> readBool ((reader.GetValue i))
+            | TypeOrValueOrLambdaConstructionInfo.Enum enumCtor -> constructEnum reader enumCtor)
     lambdaCtor.Lambda.Compile().DynamicInvoke(paramValues |> Seq.toArray)
+
+and constructEnum reader enumCtor =
+    Enum.ToObject(enumCtor.Type, (reader.GetValue enumCtor.Index))
 
 and constructType reader typeCtor = 
     let getSingleIndex() = 
         match typeCtor.ConstructorArgs |> Seq.exactlyOne with
-        | Type _ -> failwith "Shouldnt be Type"
-        | Lambda _ -> failwith "Shouldnt be Lambda"
+        | Type _ -> failwith "Shouldn't be Type"
+        | Lambda _ -> failwith "Shouldn't be Lambda"
+        | Enum e -> e.Index
         | Bool i | Value i -> i
 
     let getValue i = 
@@ -108,14 +129,33 @@ and constructType reader typeCtor =
         t = typedefof<double> ||
         t = typedefof<float> ||
         t = typedefof<System.Guid> ||
+        t = typedefof<uint16> ||
+        t = typedefof<uint32> ||
+        t = typedefof<uint64> ||
         t = typedefof<int16> ||
         t = typedefof<int32> ||
         t = typedefof<int64> then
-        getValue (getSingleIndex())
+        Convert.ChangeType((getValue (getSingleIndex())), t)
     else if t = typedefof<bool> then
         getValue (getSingleIndex()) |> readBool 
     else if ti.IsEnum then
         getValue (getSingleIndex())
+    else if isNullable t then
+        let i = getSingleIndex()
+        if reader.IsDBNull(i) then
+            null :> obj
+        else
+            let value =
+                match typeCtor.ConstructorArgs |> Seq.exactlyOne with 
+                    | Type t -> failwith "Shouldn't be Type"
+                    | Lambda l -> failwith "Shouldn't be Lambda"
+                    | Enum e -> constructEnum reader e
+                    | Bool i -> getValue i |> readBool
+                    | Value i -> getValue i
+            if value <> null then
+                value
+            else
+                null :> obj
     else if isOption t then
         let i = getSingleIndex()
         if reader.IsDBNull(i) then
@@ -133,6 +173,7 @@ and constructType reader typeCtor =
                 match arg with 
                 | Type t -> constructType reader t
                 | Lambda l -> invokeLambda reader l
+                | Enum e -> constructEnum reader e
                 | Bool i -> i |> getValue |> readBool
                 | Value i -> getValue i)
             |> Seq.toArray
@@ -169,7 +210,10 @@ and constructType reader typeCtor =
                     let newEx = System.Exception(message, ex)
                     raise newEx
             else
-                System.Activator.CreateInstance(t, getCtorArgs())
+                let args = getCtorArgs()
+                let ctor = t.GetConstructors().Single()
+                let create = ctor.CreateArrayFunc()
+                create.Invoke(args)
         if typeCtor.PropertySets |> Seq.length > 0 then
             failwith "PropertySets are not implemented"
         

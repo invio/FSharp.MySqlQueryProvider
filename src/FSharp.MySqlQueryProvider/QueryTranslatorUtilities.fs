@@ -1,9 +1,11 @@
-﻿module FSharp.QueryProvider.QueryTranslatorUtilities
+﻿module FSharp.MySqlQueryProvider.QueryTranslatorUtilities
     
-open FSharp.QueryProvider.DataReader
-open FSharp.QueryProvider.PreparedQuery
-open FSharp.QueryProvider.Expression
-open FSharp.QueryProvider.ExpressionMatching
+open FSharp.MySqlQueryProvider.DataReader
+open FSharp.MySqlQueryProvider.PreparedQuery
+open FSharp.MySqlQueryProvider.Expression
+open FSharp.MySqlQueryProvider.ExpressionMatching
+open Invio.Extensions.Reflection
+open System
 open System.Linq.Expressions
 open System.Reflection
 
@@ -154,6 +156,8 @@ let unionExactlyOneCaseOneField t =
 let rec unwrapType (t : System.Type) = 
     if isOption t then
         t.GetTypeInfo().GetGenericArguments() |> Seq.head |> unwrapType
+    else if isNullable t then
+        Nullable.GetUnderlyingType(t) |> unwrapType
     else if t |> FSharpType.IsUnion then
         (unionExactlyOneCaseOneField t).PropertyType |> unwrapType
     else
@@ -182,6 +186,8 @@ let rec unwrapValue value =
         ti.GetMethod("get_Value").Invoke(value, [||]) |> unwrapValue
     else if t |> FSharpType.IsUnion then
         ti.GetMethod("get_Item").Invoke(value, [||]) |> unwrapValue
+    else if isNullable t then
+        ti.GetProperty("Value").CreateGetter().Invoke(value, [||]) |> unwrapValue
     else
         value
 
