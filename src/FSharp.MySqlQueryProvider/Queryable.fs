@@ -60,11 +60,16 @@ module internal TypeSystem =
 type Query<'T>(provider : QueryProvider,
                [<Optional; DefaultParameterValue(null)>] expression : Expression option) as this =
 
-    let flags = BindingFlags.NonPublic ||| BindingFlags.Static
-    let genericType = (typedefof<Query<_>>).MakeGenericType(typedefof<'T>)
-    let methodInfo = genericType.GetMethod("nothing", flags)
-    let callExpression = Expression.Call(null, methodInfo, Expression.Constant(this)) :> Expression
-    let hardExpression = defaultArg expression callExpression
+    let getDefaultCallExpression() =
+        let flags = BindingFlags.NonPublic ||| BindingFlags.Static
+        let genericType = (typedefof<Query<_>>).MakeGenericType(typedefof<'T>)
+        let methodInfo = genericType.GetMethod("nothing", flags)
+        Expression.Call(null, methodInfo, Expression.Constant(this)) :> Expression
+
+    let hardExpression =
+        match expression with
+        | Some x -> x
+        | None -> getDefaultCallExpression()
 
     let mutable result : IEnumerable<'T> option = None
     let resultLock = obj()
