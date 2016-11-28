@@ -248,9 +248,9 @@ let getOperationsAndQueryable e : option<IQueryable * MethodCallExpression list>
                 None
 
     let result = get e
-    match result with 
+    match result with
     | None -> None
-    | Some result -> 
+    | Some result ->
         Some(fst(result).Value, snd(result))
 
 open System.Reflection

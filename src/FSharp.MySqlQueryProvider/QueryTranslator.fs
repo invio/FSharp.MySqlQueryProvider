@@ -343,6 +343,7 @@ module QueryTranslator =
                         let sum, ml = getMethod "Sum" ml
                         let any, ml = getMethod "Any" ml
                         let groupBy, ml = getMethod "GroupBy" ml
+                        let nothing, ml = getMethod "nothing" ml
                         
                         let wheres = 
                             match any with 
