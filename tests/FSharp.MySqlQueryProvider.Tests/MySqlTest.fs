@@ -204,6 +204,11 @@ module QueryGenTest =
     let intSelect = simpleSelect typedefof<int>
     let boolSelect = simpleSelect typedefof<bool>
 
+    let stringPersonSelect = "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` "
+    let stringPersonSelectFrom = stringPersonSelect + "FROM `Person` AS T"
+
+    let stringEmployeeSelect = "SELECT T.`EmployeeId`, T.`EmployeeName`, T.`DepartmentId`, T.`VersionNo`, T.`PersonId` "
+
     [<Fact>]
     let ``select simple``() =
         let q = fun (persons : IQueryable<Person>) -> 
@@ -212,7 +217,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" [] (personSelect)
+        AreEqualExpression q stringPersonSelectFrom [] (personSelect)
 
     [<Fact>]
     let ``select direct sql``() =
@@ -231,8 +236,9 @@ module QueryGenTest =
                 where(p.PersonName = "john")
             }
 
-        AreEqualExpression q 
-            "SELECT * FROM OtherPerson AS T WHERE ((T.`PersonName` = @p1))" [
+        let sql = "SELECT * FROM OtherPerson AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualExpression q sql [
                 {Name="@p1"; Value=("john"); DbType = MySqlDbType.VarChar}
             ] (personSelect)
 
@@ -246,7 +252,7 @@ module QueryGenTest =
                 select(func p)
             }
 
-        let persons = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let persons = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let persons = persons :?> seq<Person>
         areSeqEqual [func Data.johnDoe; func Data.jamesWilson; func Data.bobHoffman] persons
 
@@ -258,7 +264,7 @@ module QueryGenTest =
                 select(fun () -> p)
             }
 
-        let funcs = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let funcs = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let funcs = funcs :?> seq<unit -> Person>
         let persons = (funcs |> Seq.map(fun f -> f()))
         areSeqEqual [Data.johnDoe; Data.jamesWilson; Data.bobHoffman] persons
@@ -271,7 +277,7 @@ module QueryGenTest =
                 select((fun () -> p)())
             }
 
-        let persons = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let persons = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let persons = persons :?> seq<Person>
         areSeqEqual [Data.johnDoe; Data.jamesWilson; Data.bobHoffman] persons
 
@@ -285,7 +291,7 @@ module QueryGenTest =
                 select(func p p)
             }
 
-        let persons = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let persons = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let persons = persons :?> seq<Person>
         areSeqEqual [func Data.johnDoe Data.johnDoe; func Data.jamesWilson Data.jamesWilson; func Data.bobHoffman Data.bobHoffman] persons
 
@@ -300,7 +306,7 @@ module QueryGenTest =
                 select(func p m)
             }
 
-        let persons = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let persons = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let persons = persons :?> seq<Person>
         areSeqEqual [func Data.johnDoe m; func Data.jamesWilson m; func Data.bobHoffman m] persons
 
@@ -328,7 +334,7 @@ module QueryGenTest =
                 select(func p)
             }
 
-        let funcs = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let funcs = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let funcs = funcs :?> seq<string -> Person>
         let persons = (funcs |> Seq.map(fun f -> f "mod"))
         areSeqEqual [func Data.johnDoe "mod"; func Data.jamesWilson "mod"; func Data.bobHoffman "mod"] persons
@@ -343,7 +349,7 @@ module QueryGenTest =
                 select(func p p.PersonName)
             }
 
-        let persons = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let persons = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let persons = persons :?> seq<Person>
         areSeqEqual [func Data.johnDoe Data.johnDoe.PersonName; func Data.jamesWilson Data.jamesWilson.PersonName; func Data.bobHoffman Data.bobHoffman.PersonName] persons
 
@@ -355,7 +361,9 @@ module QueryGenTest =
                 where(b.Value = true)
             }
 
-        let bools = AreEqualExpressionReturn q "SELECT T.`Value` FROM `BoolRecord` AS T WHERE ((T.`Value` = @p1))" DataReaderData.bools
+        let sql = "SELECT T.`Value` FROM `BoolRecord` AS T WHERE ((T.`Value` <=> @p1))"
+
+        let bools = AreEqualExpressionReturn q sql DataReaderData.bools
         let bools = bools :?> seq<BoolRecord>
         areSeqEqual [{ BoolRecord.Value = true }; { BoolRecord.Value = false }] bools
 
@@ -367,7 +375,7 @@ module QueryGenTest =
                 select(Some p)
             }
 
-        let persons = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let persons = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let persons = persons :?> seq<Person option>
         areSeqEqual [Some Data.johnDoe; Some Data.jamesWilson; Some Data.bobHoffman] persons
 
@@ -392,7 +400,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -414,7 +424,9 @@ module QueryGenTest =
                 else
                     None
             ))
-        AreEqualTranslateExpression translate q "SELECT T.`PersonId`, T.`PersonNameMod`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonNameMod` = @p1) AND (T.`JobKind` = @p2))" [
+        let sql = "SELECT T.`PersonId`, T.`PersonNameMod`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonNameMod` <=> @p1) AND (T.`JobKind` <=> @p2))"
+
+        AreEqualTranslateExpression translate q sql [
             {Name="@p1"; Value=("john"); DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value=(JobKind.Manager); DbType = MySqlDbType.Int32}
         ] (personSelect)
@@ -441,7 +453,11 @@ module QueryGenTest =
                     None
             )) None
 
-        AreEqualTranslateExpression translate q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `PersonMod` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2))" [] (personSelect)
+        let sql =
+            stringPersonSelect
+                + "FROM `PersonMod` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2))"
+
+        AreEqualTranslateExpression translate q sql [] (personSelect)
 
     [<Fact>]
     let ``where local var``() =
@@ -454,7 +470,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=(name); DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -469,7 +487,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=(!name); DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -484,7 +504,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=("john"); DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -500,7 +522,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=("john"); DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -517,7 +541,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=("john"); DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -532,7 +558,9 @@ module QueryGenTest =
                     select p
                 }
 
-            AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+            let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+            AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
                 {Name="@p1"; Value=gen(); DbType = MySqlDbType.VarChar}
             ] (personSelect)
 
@@ -549,7 +577,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((T.`PersonName` = @p1) AND (T.`PersonId` = @p2))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1) AND (T.`PersonId` <=> @p2))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value=5; DbType = MySqlDbType.Int32}
         ] (personSelect)
@@ -563,7 +593,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (((T.`PersonName` = @p1) OR (T.`PersonName` = @p2)))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE (((T.`PersonName` <=> @p1) OR (T.`PersonName` <=> @p2)))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value="doe"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
@@ -577,7 +609,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((((T.`PersonName` = @p1) OR (T.`PersonName` = @p2)) OR (T.`PersonName` = @p3)))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((((T.`PersonName` <=> @p1) OR (T.`PersonName` <=> @p2)) OR (T.`PersonName` <=> @p3)))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value="doe"; DbType = MySqlDbType.VarChar}
             {Name="@p3"; Value="james"; DbType = MySqlDbType.VarChar}
@@ -592,13 +626,15 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (((T.`PersonName` = @p1) AND (T.`JobKind` = @p2)))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE (((T.`PersonName` <=> @p1) AND (T.`JobKind` <=> @p2)))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value=(JobKind.Manager); DbType = MySqlDbType.Int32}
         ] (personSelect)
 
     [<Fact>]
-    let ``where with both or and and ``() =
+    let ``where with both or and and``() =
         let q = fun (persons : IQueryable<Person>) -> 
             query {
                 for p in persons do
@@ -606,13 +642,29 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE ((((T.`PersonName` = @p1) OR (T.`PersonName` = @p2)) AND ((T.`JobKind` = @p3) OR (T.`JobKind` = @p4))))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE ((((T.`PersonName` <=> @p1) OR (T.`PersonName` <=> @p2)) AND ((T.`JobKind` <=> @p3) OR (T.`JobKind` <=> @p4))))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value="jane"; DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value="john"; DbType = MySqlDbType.VarChar}
             {Name="@p3"; Value=(JobKind.Manager); DbType = MySqlDbType.Int32}
             {Name="@p4"; Value=(JobKind.Salesman); DbType = MySqlDbType.Int32}
         ] (personSelect)
 
+    [<Fact>]
+    let ``where null``() =
+        let q = fun (persons : IQueryable<Person>) -> 
+            query {
+                for p in persons do
+                where(p.PersonName = null)
+                select p
+            }
+
+        let nonSelectSql = "FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
+            {Name="@p1"; Value=System.DBNull.Value; DbType = MySqlDbType.VarChar}
+        ] (personSelect)
 
     [<Fact>]
     let ``where option some``() =
@@ -623,7 +675,9 @@ module QueryGenTest =
                 select e
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`EmployeeId`, T.`EmployeeName`, T.`DepartmentId`, T.`VersionNo`, T.`PersonId` " "FROM `Employee` AS T WHERE ((T.`DepartmentId` = @p1))" [
+        let nonSelectSql = "FROM `Employee` AS T WHERE ((T.`DepartmentId` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringEmployeeSelect nonSelectSql [
             {Name="@p1"; Value=1234; DbType = MySqlDbType.Int32}
         ] (employeeSelect 0)
     [<Fact>]
@@ -635,7 +689,9 @@ module QueryGenTest =
                 select e
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`EmployeeId`, T.`EmployeeName`, T.`DepartmentId`, T.`VersionNo`, T.`PersonId` " "FROM `Employee` AS T WHERE ((T.`DepartmentId` = @p1))" [
+        let nonSelectSql = "FROM `Employee` AS T WHERE ((T.`DepartmentId` <=> @p1))"
+
+        AreEqualDeleteOrSelectExpression q stringEmployeeSelect nonSelectSql [
             {Name="@p1"; Value=System.DBNull.Value; DbType = MySqlDbType.Int32}
         ] (employeeSelect 0)
 
@@ -648,7 +704,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonName` LIKE '%' + @p1 + '%')" [
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonName` LIKE '%' + @p1 + '%')" [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -661,7 +717,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonName` LIKE @p1 + '%')" [
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonName` LIKE @p1 + '%')" [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -674,7 +730,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonName` LIKE '%' + @p1)" [
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonName` LIKE '%' + @p1)" [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -688,7 +744,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN ())" [] (personSelect)
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonId` IN ())" [] (personSelect)
 
 
     [<Fact>]
@@ -701,7 +757,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN (@p1, @p2, @p3, @p4, @p5, @p6))" [
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonId` IN (@p1, @p2, @p3, @p4, @p5, @p6))" [
             {Name="@p1"; Value=1; DbType = MySqlDbType.Int32};
             {Name="@p2"; Value=2; DbType = MySqlDbType.Int32};
             {Name="@p3"; Value=3; DbType = MySqlDbType.Int32};
@@ -721,7 +777,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN (@p1, @p2, @p3, @p4, @p5, @p6) AND T.`VersionNo` IN (@p7, @p8, @p9, @p10, @p11, @p12))" [
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonId` IN (@p1, @p2, @p3, @p4, @p5, @p6) AND T.`VersionNo` IN (@p7, @p8, @p9, @p10, @p11, @p12))" [
             {Name="@p1"; Value=1; DbType = MySqlDbType.Int32};
             {Name="@p2"; Value=2; DbType = MySqlDbType.Int32};
             {Name="@p3"; Value=3; DbType = MySqlDbType.Int32};
@@ -749,7 +805,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2))" [] (personSelect)
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2))" [] (personSelect)
 
     [<Fact>]
     let ``where subquery from func contains id ``() =
@@ -772,12 +828,14 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2 WHERE ((T2.`EmployeeName` = @p1))))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2 WHERE ((T2.`EmployeeName` <=> @p1))))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
     [<Fact>]
-    let ``where direct sql subquery contains id ``() =
+    let ``where direct sql subquery contains id``() =
         let q = fun (persons : IQueryable<Person>) -> 
             query {
                 for p in persons do
@@ -795,7 +853,7 @@ module QueryGenTest =
             }
 
         AreEqualDeleteOrSelectExpression q 
-            "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " 
+            stringPersonSelect 
             "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT PersonID FROM Other WHERE FName = @p1 AND LName = @p2 AND 2ndLName = @p2))"
             [
                 {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
@@ -804,7 +862,7 @@ module QueryGenTest =
             (personSelect)
 
     [<Fact>]
-    let ``where subquery with where contains id ``() =
+    let ``where subquery with where contains id``() =
         let q = fun (persons : IQueryable<Person>) -> 
             query {
                 for p in persons do
@@ -817,7 +875,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2 WHERE ((T2.`DepartmentId` = @p1))))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2 WHERE ((T2.`DepartmentId` <=> @p1))))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=1234; DbType = MySqlDbType.Int32}
         ] (personSelect)
 
@@ -837,7 +897,9 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` " "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2 WHERE ((T2.`DepartmentId` = @p1))))" [
+        let nonSelectSql = "FROM `Person` AS T WHERE (T.`PersonId` IN (SELECT T2.`PersonId` FROM `Employee` AS T2 WHERE ((T2.`DepartmentId` <=> @p1))))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
             {Name="@p1"; Value=1234; DbType = MySqlDbType.Int32}
         ] (personSelect)
 
@@ -859,7 +921,9 @@ module QueryGenTest =
                 select p.PersonName
             }
 
-        AreEqualExpression q "SELECT T.`PersonName` FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let sql = "SELECT T.`PersonName` FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (stringSelect 0 Many)
 
@@ -872,7 +936,9 @@ module QueryGenTest =
                 select p.JobKind
             }
 
-        AreEqualExpression q "SELECT T.`JobKind` FROM `Person` AS T WHERE ((T.`PersonName` = @p1))" [
+        let sql = "SELECT T.`JobKind` FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
             ] (simpleSelect typedefof<JobKind> 0 Many)
 
@@ -910,7 +976,9 @@ module QueryGenTest =
                 count
             }
 
-        AreEqualExpression q "SELECT COUNT(*) FROM `Person` AS T WHERE ((T.`PersonName` = @p1))"  [
+        let sql = "SELECT COUNT(*) FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (simpleOneSelect typedefof<int> 0)
 
@@ -923,7 +991,9 @@ module QueryGenTest =
                 exists(p.PersonName = "john")
             }
 
-        AreEqualExpression q "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE ((T.`PersonName` = @p1))"  [
+        let sql = "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (simpleOneSelect typedefof<bool> 0)
 
@@ -936,7 +1006,7 @@ module QueryGenTest =
                 contains 11
             }
         
-        AreEqualExpression q "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE ((T.`PersonId` = @p1))"  [
+        AreEqualExpression q "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE ((T.`PersonId` = @p1))" [
             {Name="@p1"; Value=11; DbType = MySqlDbType.Int32}
         ] (simpleOneSelect typedefof<bool> 0)
 
@@ -978,8 +1048,10 @@ module QueryGenTest =
                 select p.PersonId
                 contains 11
             }
+
+        let sql = "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE (((T.`PersonName` <=> @p1) AND (T.`PersonId` = @p2)))"
         
-        AreEqualExpression q "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE (((T.`PersonName` = @p1) AND (T.`PersonId` = @p2)))" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
             {Name="@p2"; Value=11; DbType = MySqlDbType.Int32}
         ] (simpleOneSelect typedefof<bool> 0)
@@ -1039,8 +1111,10 @@ module QueryGenTest =
                 where(p.PersonName = "john")
                 exactlyOne
             }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 2"
         
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) LIMIT 2" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelectType Single)
 
@@ -1073,8 +1147,10 @@ module QueryGenTest =
                 where(p.PersonName = "john")
                 exactlyOneOrDefault
             }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 2"
         
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) LIMIT 2" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelectType SingleOrDefault)
 
@@ -1096,8 +1172,10 @@ module QueryGenTest =
                 where(p.PersonName = "john")
                 head
             }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 1"
         
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) LIMIT 1" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelectType Single)
 
@@ -1119,8 +1197,10 @@ module QueryGenTest =
                 where(p.PersonName = "john")
                 head
             }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 1"
         
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) LIMIT 1" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelectType Single)
 
@@ -1142,8 +1222,10 @@ module QueryGenTest =
                 where(p.PersonName = "john")
                 minBy p.PersonId
             }
+
+        let sql = "SELECT T.`PersonId` FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1)) ORDER BY T.`PersonId` ASC LIMIT 1"
         
-        AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) ORDER BY T.`PersonId` ASC LIMIT 1" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (intSelect 0 Single)
 
@@ -1165,8 +1247,10 @@ module QueryGenTest =
                 where(p.PersonName = "john")
                 maxBy p.PersonId
             }
+
+        let sql = "SELECT T.`PersonId` FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1)) ORDER BY T.`PersonId` DESC LIMIT 1"
         
-        AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) ORDER BY T.`PersonId` DESC LIMIT 1" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (intSelect 0 Single)
 
@@ -1190,7 +1274,10 @@ module QueryGenTest =
 //                    PropertySets = []
 //                }
 //            }
-        AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) ORDER BY T.`PersonId` DESC LIMIT 1" [
+
+        let sql = "SELECT T.`PersonId` FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1)) ORDER BY T.`PersonId` DESC LIMIT 1"
+
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (intSelect 0 Single)
 
@@ -1203,7 +1290,7 @@ module QueryGenTest =
                 select g
             }
 
-        let grouped = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T" DataReaderData.persons
+        let grouped = AreEqualExpressionReturn q stringPersonSelectFrom DataReaderData.persons
         let grouped = grouped :?> seq<IGrouping<JobKind, Person>>
 
         Assert.Equal(2, grouped |> Seq.length)
@@ -1226,7 +1313,9 @@ module QueryGenTest =
                 select g
             }
 
-        let grouped = AreEqualExpressionReturn q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE (T.`JobKind` = @p1)" DataReaderData.persons
+        let sql = stringPersonSelectFrom + " WHERE (T.`PersonName` <=> @p1)"
+
+        let grouped = AreEqualExpressionReturn q sql DataReaderData.persons
         let grouped = grouped :?> seq<IGrouping<JobKind, Person>>
 
         Assert.Equal(2, grouped |> Seq.length)
@@ -1306,8 +1395,10 @@ module QueryGenTest =
                 sortBy p.PersonId
                 where(p.PersonName = "john")
             }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) ORDER BY T.`PersonId` ASC"
             
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) ORDER BY T.`PersonId` ASC" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 
@@ -1351,8 +1442,10 @@ module QueryGenTest =
                 sortByDescending p.PersonId
                 where(p.PersonName = "john")
             }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) ORDER BY T.`PersonId` DESC"
             
-        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T WHERE ((T.`PersonName` = @p1)) ORDER BY T.`PersonId` DESC" [
+        AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
         ] (personSelect)
 

@@ -222,7 +222,7 @@ module QueryTranslator =
         (expression : Expression) = 
         
         let getDBType = 
-            match getDBType with 
+            match getDBType with
             | Some g -> fun morP -> 
                 match g morP with
                 | Unhandled -> 
@@ -314,7 +314,10 @@ module QueryTranslator =
             let bin (e : BinaryExpression) (text : string) = 
                 let leftSql, leftParams, leftCtor = map(e.Left)
                 let rightSql, rightParams, rightCtor = map(e.Right)
-                Some (["("] @ leftSql @ [" "; text; " "] @ rightSql @ [")"], leftParams @ rightParams, leftCtor @ rightCtor)
+                let parameters = leftParams @ rightParams
+                let ctors = leftCtor @ rightCtor
+                let sql = leftSql @ [" "; text; " "] @ rightSql
+                Some (["("] @ sql @ [")"], parameters, ctors)
 
             let result : option<string list * PreparedParameter<_> list * ConstructionInfo list>= 
                 match e with
@@ -697,8 +700,12 @@ module QueryTranslator =
                 | AndAlso e -> bin e "AND"
                 | Or e -> bin e "OR"
                 | OrElse e -> bin e "OR"
-                | Equal e -> bin e "="
-                | NotEqual e -> bin e "<>"
+                | Equal e -> bin e "<=>"
+                | NotEqual e ->
+                    let result = (bin e "<=>")
+                    match result with
+                    | Some (sql, parameters, ctor) -> Some ([" NOT "] @ sql, parameters, ctor)
+                    | None -> None
                 | LessThan e -> bin e "<"
                 | LessThanOrEqual e -> bin e "<="
                 | GreaterThan e -> bin e ">"
@@ -717,7 +724,10 @@ module QueryTranslator =
                             Some (q, p, [createQueryableCtorInfo queryable Many])
                         | None -> failwith "This should never get hit"
                     | None ->
-                        Some (valueToQueryAndParam (getDBType (TypeSource.Value c.Value)) c.Value)
+                        if c.Value = null then
+                            Some (createNull (getDBType (TypeSource.Type c.Type)))
+                        else
+                            Some (valueToQueryAndParam (getDBType (TypeSource.Value c.Value)) c.Value)
                 | MemberAccess m ->
                     if m.Expression <> null && m.Expression.NodeType = ExpressionType.Parameter then
                         match context.TableAlias with

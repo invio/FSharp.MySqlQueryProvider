@@ -179,7 +179,7 @@ let createParameter columnIndex value dbType =
 /// Get the actual value of an object. Unwraps options and unions
 /// </summary>
 /// <param name="value"></param>
-let rec unwrapValue value = 
+let rec unwrapValue value =
     let t = value.GetType()
     let ti = t.GetTypeInfo()
     if t |> isOption then
