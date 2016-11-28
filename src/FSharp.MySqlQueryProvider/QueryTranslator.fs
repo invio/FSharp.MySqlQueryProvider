@@ -344,6 +344,24 @@ module QueryTranslator =
                         let any, ml = getMethod "Any" ml
                         let groupBy, ml = getMethod "GroupBy" ml
                         let nothing, ml = getMethod "nothing" ml
+
+                        let singleMethodOnlyAllowed = [
+                            "Select";
+                            "Count";
+                            "Last";
+                            "LastOrDefault";
+                            "Contains";
+                            "Single";
+                            "SingleOrDefault";
+                            "First";
+                            "FirstOrDefault";
+                            "Max";
+                            "Min";
+                            "Sum";
+                            "Any";
+                            "GroupBy";
+                            "nothing"
+                        ]
                         
                         let wheres = 
                             match any with 
@@ -364,7 +382,13 @@ module QueryTranslator =
                             | None -> sorts, m
 
                         let needsSelect = lazy ([count; contains; any; maxOrMin; sum; select] |> Seq.exists(Option.isSome))
-                        if ml |> Seq.length > 0 then 
+                        let hasTooMany, ml = getMethods singleMethodOnlyAllowed ml
+
+                        if hasTooMany |> Seq.length > 0 then
+                            let methodNames = (hasTooMany |> Seq.map(fun m -> sprintf "'%s'" m.Method.Name) |> String.concat(","))
+                            failwithf "Query can only contain one call to the following: %s" methodNames
+
+                        if ml |> Seq.length > 0 then
                             let methodNames = (ml |> Seq.map(fun m -> sprintf "'%s'" m.Method.Name) |> String.concat(","))
                             failwithf "Methods not implemented: %s" methodNames
 
