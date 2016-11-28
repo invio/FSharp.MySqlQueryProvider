@@ -90,8 +90,9 @@ let (|CallIEnumerable|_|) (e : Expression) =
         | :? MemberExpression as me -> 
             makeMemberReturn m me args
         | _ -> None
-        
+    | Some m -> None
     | None -> None
+
 let (|Coalesce|_|) (e : Expression) =
     compare e et.Coalesce
 let (|Conditional|_|) (e : Expression) =

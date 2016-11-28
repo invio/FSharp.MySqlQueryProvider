@@ -9,9 +9,9 @@ type LocalDataReader(data : obj list list) =
     let current() = 
         if currentIndex = -1 then
             failwith "cannot access until Read has been called."
-        data |> List.nth <| currentIndex
+        data.[currentIndex]
     let field index =
-        current() |> List.nth <| index
+        current().[index]
     interface IDataReader with
         member x.Close(): unit = 
             isOpen <- false
