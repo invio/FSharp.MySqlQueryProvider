@@ -111,10 +111,15 @@ and constructType reader typeCtor =
 
     let getValue i = 
         let typeName = reader.GetDataTypeName i
-        let value = reader.GetValue i 
+        let value = reader.GetValue i
         if typeName = "char" then
             let str = value :?> string 
             str.TrimEnd() :> obj
+        else if typeName.ToLower().StartsWith("varchar") then
+            if reader.IsDBNull(i) then
+                null
+            else
+                value
         else
             value
 
