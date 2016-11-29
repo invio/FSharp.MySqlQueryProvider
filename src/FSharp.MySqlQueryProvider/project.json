@@ -1,7 +1,7 @@
 {
 
   "name": "FSharp.MySqlQueryProvider",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Building a QueryProvider in FSharp.",
   "buildOptions": {
     "debugType": "portable",

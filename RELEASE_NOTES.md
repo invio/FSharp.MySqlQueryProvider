@@ -1,3 +1,6 @@
+### 1.0.3 - November 29 2016
+* Adding special case for string which can be null, and have type dbnull.
+
 ### 1.0.2 - November 28 2016
 * Updating version of Invio.Extensions.Reflection.
 
