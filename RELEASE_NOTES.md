@@ -1,3 +1,6 @@
+### 1.0.2 - November 28 2016
+* Updating version of Invio.Extensions.Reflection.
+
 ### 1.0.1 - November 28 2016
 * Adding check for multiple declarations of functions that can only be called once.
 
