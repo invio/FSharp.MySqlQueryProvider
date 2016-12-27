@@ -1,6 +1,8 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/38l6kqpx9nfwq7lr/branch/master?svg=true)](https://ci.appveyor.com/project/rokadias/fsharp-mysqlqueryprovider/branch/master)
 [![NuGet](https://img.shields.io/nuget/v/FSharp.MySqlQueryProvider.svg)](https://www.nuget.org/packages/FSharp.MySqlQueryProvider/)
 
+** This Project does not implement all possibilities for IQueryProvider and should be tested for use cases not in the MySqlTest.fs.**
+
 # FSharp.MySqlQueryProvider
 
 This project is a fork from FSharp.QueryProvider. The goal is to create a mysql query generation
