@@ -1,3 +1,6 @@
+### 1.0.4 - January 05 2017
+* Setting DateTimeKind to Utc for dates retrieved from the database.
+
 ### 1.0.3 - November 29 2016
 * Adding special case for string which can be null, and have type dbnull.
 
