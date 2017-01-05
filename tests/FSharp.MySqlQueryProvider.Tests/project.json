@@ -23,37 +23,12 @@
     }
   },
   "dependencies": {
-    "Microsoft.Win32.Primitives": "4.0.1",
     "FSharp.MySqlQueryProvider": { "target": "project" },
-    "Microsoft.NETCore.Platforms": "1.0.1",
-    "Microsoft.NETCore.Runtime.CoreCLR": "1.0.4",
+    "Microsoft.NETCore.Platforms": "1.1.0",
     "MySql.Data": "7.0.5-IR21",
-    "NETStandard.Library": "1.6.0",
+    "NETStandard.Library": "1.6.1",
     "dotnet-test-xunit": "2.2.0-*",
-    "xunit": "2.2.0-*",
-    "System.Collections": "4.0.11",
-    "System.Console": "4.0.0",
-    "System.Diagnostics.Debug": "4.0.11",
-    "System.Diagnostics.Tools": "4.0.1",
-    "System.Globalization": "4.0.11",
-    "System.IO": "4.1.0",
-    "System.Linq": "4.1.0",
-    "System.Linq.Expressions": "4.1.0",
-    "System.Linq.Queryable": "4.0.1",
-    "System.Net.Requests": "4.0.11",
-    "System.Reflection": "4.1.0",
-    "System.Reflection.Extensions": "4.0.1",
-    "System.Resources.ResourceManager":"4.0.1",
-    "System.Runtime": "4.1.0",
-    "System.Runtime.Extensions": "4.1.0",
-    "System.Runtime.Numerics": "4.0.1",
-    "System.Text.RegularExpressions": "4.1.0",
-    "System.Threading": "4.0.11",
-    "System.Threading.Tasks": "4.0.11",
-    "System.Threading.Tasks.Parallel": "4.0.1",
-    "System.Threading.Thread": "4.0.0",
-    "System.Threading.ThreadPool": "4.0.10",
-    "System.Threading.Timer": "4.0.1"
+    "xunit": "2.2.0-*"
   },
 
   "runtimes": {
@@ -69,7 +44,7 @@
   "frameworks": {
     "netcoreapp1.0": {
       "dependencies": {
-        "Microsoft.NETCore.App": "1.0.1",
+        "Microsoft.NETCore.App": "1.1.0",
         "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-160629"
       },
       "imports": [ "netstandard1.1", "netstandard1.6", "portable-net45+win8+wp8+wpa81" ]
