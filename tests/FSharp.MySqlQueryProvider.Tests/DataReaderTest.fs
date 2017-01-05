@@ -89,7 +89,7 @@ let ctorVerboseRecord returnType =
                                                   Bool 1
                                                   Value 2
                                                   Value 3
-                                                  Value 4
+                                                  DateTime 4
                                                   Value 5
                                                   Value 6
                                                   Value 7
@@ -154,6 +154,13 @@ let ``one System.DateTime``() =
     let reader = new LocalDataReader([ [ d ] ])
     let result = (read reader (ctorOneSimple typedefof<System.DateTime>)) :?> System.DateTime
     d == result
+
+[<Fact>]
+let ``System.DateTime Kind``() =
+    let d = System.DateTime.Now
+    let reader = new LocalDataReader([ [ d ] ])
+    let result = (read reader (ctorOneSimple typedefof<System.DateTime>)) :?> System.DateTime
+    System.DateTimeKind.Utc == result.Kind
 
 [<Fact>]
 let ``one decimal``() = 
@@ -226,7 +233,7 @@ let ``one verbose record``() =
           Bool = true
           Byte = 5uy
           Char = 'g'
-          DateTime = d
+          DateTime = System.DateTime.SpecifyKind(d, System.DateTimeKind.Utc)
           Decimal = 1.23M
           Double = 1.45
           Float = 1.67
@@ -236,6 +243,7 @@ let ``one verbose record``() =
           Int64 = 4L
           UnionEnum = UnionEnum.One }
     Assert.Equal(e, result)
+    Assert.Equal(e.DateTime.Kind, result.DateTime.Kind)
 
 [<Fact>]
 let ``many verbose record``() = 

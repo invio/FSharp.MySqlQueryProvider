@@ -20,6 +20,7 @@ and TypeOrValueOrLambdaConstructionInfo =
 | Type of TypeConstructionInfo
 | Value of int
 | Bool of int
+| DateTime of int
 | Enum of EnumConstructionInfo
 | Lambda of LambdaConstructionInfo
 
@@ -68,6 +69,10 @@ let isEnumType (t : System.Type) =
     let ti = t.GetTypeInfo()
     ti.IsEnum
 
+let readDateTime (value : obj) =
+    let dateTime = value :?> System.DateTime
+    System.DateTime.SpecifyKind(dateTime, System.DateTimeKind.Utc) :> obj
+
 let readBool (value : obj) = 
     match value with 
     | :? int as i -> 
@@ -94,6 +99,7 @@ and invokeLambda reader lambdaCtor =
             | TypeOrValueOrLambdaConstructionInfo.Type typeCtor -> constructType reader typeCtor
             | TypeOrValueOrLambdaConstructionInfo.Lambda lambdaCtor -> invokeLambda reader lambdaCtor
             | TypeOrValueOrLambdaConstructionInfo.Value i -> reader.GetValue i
+            | TypeOrValueOrLambdaConstructionInfo.DateTime i -> readDateTime ((reader.GetValue i))
             | TypeOrValueOrLambdaConstructionInfo.Bool i -> readBool ((reader.GetValue i))
             | TypeOrValueOrLambdaConstructionInfo.Enum enumCtor -> constructEnum reader enumCtor)
     lambdaCtor.Lambda.Compile().DynamicInvoke(paramValues |> Seq.toArray)
@@ -107,7 +113,7 @@ and constructType reader typeCtor =
         | Type _ -> failwith "Shouldn't be Type"
         | Lambda _ -> failwith "Shouldn't be Lambda"
         | Enum e -> e.Index
-        | Bool i | Value i -> i
+        | DateTime i | Bool i | Value i -> i
 
     let getValue i = 
         let typeName = reader.GetDataTypeName i
@@ -129,7 +135,6 @@ and constructType reader typeCtor =
         t = typedefof<byte> ||
         t = typedefof<sbyte> ||
         t = typedefof<char> ||
-        t = typedefof<System.DateTime> ||
         t = typedefof<decimal> ||
         t = typedefof<double> ||
         t = typedefof<float> ||
@@ -141,8 +146,10 @@ and constructType reader typeCtor =
         t = typedefof<int32> ||
         t = typedefof<int64> then
         Convert.ChangeType((getValue (getSingleIndex())), t)
+    else if t = typedefof<System.DateTime> then
+        getValue (getSingleIndex()) |> readDateTime
     else if t = typedefof<bool> then
-        getValue (getSingleIndex()) |> readBool 
+        getValue (getSingleIndex()) |> readBool
     else if ti.IsEnum then
         getValue (getSingleIndex())
     else if isNullable t then
@@ -155,6 +162,7 @@ and constructType reader typeCtor =
                     | Type t -> failwith "Shouldn't be Type"
                     | Lambda l -> failwith "Shouldn't be Lambda"
                     | Enum e -> constructEnum reader e
+                    | DateTime i -> getValue i |> readDateTime
                     | Bool i -> getValue i |> readBool
                     | Value i -> getValue i
             if value <> null then
@@ -179,6 +187,7 @@ and constructType reader typeCtor =
                 | Type t -> constructType reader t
                 | Lambda l -> invokeLambda reader l
                 | Enum e -> constructEnum reader e
+                | DateTime i -> i |> getValue |> readDateTime
                 | Bool i -> i |> getValue |> readBool
                 | Value i -> getValue i)
             |> Seq.toArray

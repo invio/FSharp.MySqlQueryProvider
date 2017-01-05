@@ -78,6 +78,8 @@ module QueryTranslator =
             let rec createConstructorInfoForPropertyType index (propertyType : System.Type) =
                 if propertyType = typedefof<bool> then
                     Bool index
+                else if propertyType = typedefof<System.DateTime> then
+                    DateTime index
                 else if isEnumType propertyType then
                     Enum {
                         Type = propertyType
