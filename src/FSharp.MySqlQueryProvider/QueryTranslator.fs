@@ -329,6 +329,7 @@ module QueryTranslator =
 
                     match linqChain with
                     | Some (queryable, ml) ->
+                        let originalMl = ml
 
                         let select, ml = getMethod "Select" ml
                         let wheres, ml = getMethods ["Where"] ml
@@ -340,6 +341,8 @@ module QueryTranslator =
                         let singleOrDefault, ml = getMethod "SingleOrDefault" ml
                         let first, ml = getMethod "First" ml
                         let firstOrDefault, ml = getMethod "FirstOrDefault" ml
+                        let skip, ml = getMethod "Skip" ml
+                        let take, ml = getMethod "Take" ml
                         let max, ml = getMethod "Max" ml
                         let min, ml = getMethod "Min" ml
                         let sum, ml = getMethod "Sum" ml
@@ -357,6 +360,8 @@ module QueryTranslator =
                             "SingleOrDefault";
                             "First";
                             "FirstOrDefault";
+                            "Skip";
+                            "Take";
                             "Max";
                             "Min";
                             "Sum";
@@ -364,12 +369,16 @@ module QueryTranslator =
                             "GroupBy";
                             "nothing"
                         ]
+
+                        let wheresLists = [any; single; singleOrDefault; first; firstOrDefault]
+                        let concatWheres original extend =
+                            match extend with
+                            | None -> original
+                            | HasWhereClause extend ->
+                                original @ [extend]
+                            | _ -> original
                         
-                        let wheres = 
-                            match any with 
-                            | None -> wheres
-                            | Some any -> 
-                                wheres @ [any]
+                        let wheres = List.fold concatWheres wheres wheresLists
 
                         let sorts, ml= getMethods ["OrderBy"; "OrderByDescending"; "ThenBy"; "ThenByDescending"] ml
                         let sorts, maxOrMin = 
@@ -632,21 +641,40 @@ module QueryTranslator =
                                 [" ORDER BY "] @ colSorts, parameters, ctor
 
                         let limitStatement = 
-                            let count = 
+                            let skipCount, count =
                                 if single.IsSome || singleOrDefault.IsSome then
-                                    Some 2
+                                    None, Some 2
                                 else if 
                                     first.IsSome ||
                                     firstOrDefault.IsSome ||
                                     max.IsSome || 
                                     min.IsSome then
-                                    Some 1
-                                else
-                                    None
+                                    None, Some 1
+                                else if take.IsSome && skip.IsSome then
+                                    let takeSkipComparison = compareMethodIndexes "Skip" "Take" originalMl
+                                    let skipValue = getInt skip.Value
+                                    let takeValue = getInt take.Value
+                                    match takeSkipComparison with
+                                    | i  when i > 0 -> Some skipValue, Some takeValue
+                                    // When take comes before skip you'll skip within the existing set. So subtract
+                                    // the skip count from the take count and obviously no reason to have a
+                                    // take statement with negative numbers.
+                                    | i  when i < 0 -> Some skipValue, Some (Math.Max(takeValue - skipValue, 0))
+                                    | _ -> failwithf "Couldn't determine if skip came before take."
 
-                            match count with
-                            | Some i -> [" LIMIT "; i.ToString()]
-                            | None -> []
+                                else if take.IsSome then
+                                    None, Some (getInt take.Value)
+                                else if skip.IsSome then
+                                    failwithf "Query must contain take if skip is specified."
+                                else
+                                    None, None
+
+                            if skipCount.IsSome && count.IsSome then
+                                [" LIMIT "; count.Value.ToString(); " OFFSET "; skipCount.Value.ToString()]
+                            else if count.IsSome then
+                                [" LIMIT "; count.Value.ToString()]
+                            else
+                                []
 
                         let sql =  mainStatement @ manualSqlQuery @ whereClause @ orderByClause @ limitStatement
                         let parameters = manualSqlParams @ orderByParameters @ whereParameters @ selectParameters
