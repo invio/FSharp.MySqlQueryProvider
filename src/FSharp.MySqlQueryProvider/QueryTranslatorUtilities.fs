@@ -67,11 +67,30 @@ type GetTableName = System.Type -> string option
 type GetColumnName = System.Reflection.MemberInfo -> string option
 
 /// <summary>
+/// Unwrap a method call expression and get its int argument.
+/// </summary>
+/// <param name="m"></param>
+let getInt (m : MethodCallExpression) =
+    ((stripQuotes (m.Arguments.Item(1))) :?> ConstantExpression).Value :?> Int32
+
+/// <summary>
 /// Unwrap a method call expression and get its lambda argument.
 /// </summary>
 /// <param name="m"></param>
 let getLambda (m : MethodCallExpression) =
-        (stripQuotes (m.Arguments.Item(1))) :?> LambdaExpression
+    (stripQuotes (m.Arguments.Item(1))) :?> LambdaExpression
+
+/// <summary>
+/// Matches a method that has two arguments. Assuming the first is IQueryable
+/// that is being extended upon, and the second being the actual lambda expression.
+/// </summary>
+let (|HasWhereClause|_|) (m : option<MethodCallExpression>) =
+    if m.IsNone then
+        None
+    else if m.Value.Arguments.Count > 1 then
+        Some m.Value
+    else
+        None
 
 /// <summary>
 /// Matches a lambda for `fun p -> p`
@@ -93,6 +112,14 @@ let (|SingleSameSelect|_|) (l : LambdaExpression) =
 /// <param name="m"></param>
 let invoke (m : MethodCallExpression) = 
     Expression.Lambda(m).Compile().DynamicInvoke()
+
+/// <summary>
+/// Compares two method names and the indexes within the list of MethodCallExpression.
+/// </summary>
+let compareMethodIndexes name1 name2 (ml : MethodCallExpression list) =
+    let m1 = ml |> List.findIndex(fun m -> m.Method.Name = name1)
+    let m2 = ml |> List.findIndex(fun m -> m.Method.Name = name2)
+    m1 - m2
 
 /// <summary>
 /// Gets a method by name from a list

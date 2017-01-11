@@ -1205,6 +1205,120 @@ module QueryGenTest =
         ] (personSelectType Single)
 
     [<Fact>]
+    let ``take``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for _p in persons do
+                take 5
+            }
+
+        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T LIMIT 5" [] (personSelectType Many)
+
+    [<Fact>]
+    let ``take partial``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                select(p.PersonId)
+                take 5
+            }
+
+        AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T LIMIT 5" [] (intSelect 0 Many)
+
+    [<Fact>]
+    let ``take where``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where(p.PersonName = "john")
+                take 5
+            }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 5"
+
+        AreEqualExpression q sql [
+            {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
+        ] (personSelectType Many)
+
+    [<Fact>]
+    let ``skip and take``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for _p in persons do
+                skip 10
+                take 5
+            }
+
+        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T LIMIT 5 OFFSET 10" [] (personSelectType Many)
+
+    [<Fact>]
+    let ``skip and take partial``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                select(p.PersonId)
+                skip 10
+                take 5
+            }
+
+        AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T LIMIT 5 OFFSET 10" [] (intSelect 0 Many)
+
+    [<Fact>]
+    let ``skip and take where``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where(p.PersonName = "john")
+                skip 10
+                take 5
+            }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 5 OFFSET 10"
+
+        AreEqualExpression q sql [
+            {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
+        ] (personSelectType Many)
+
+    [<Fact>]
+    let ``take then skip``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for _p in persons do
+                take 20
+                skip 5
+            }
+
+        AreEqualExpression q "SELECT T.`PersonId`, T.`PersonName`, T.`JobKind`, T.`VersionNo` FROM `Person` AS T LIMIT 15 OFFSET 5" [] (personSelectType Many)
+
+    [<Fact>]
+    let ``take then skip partial``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                select(p.PersonId)
+                take 20
+                skip 5
+            }
+
+        AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T LIMIT 15 OFFSET 5" [] (intSelect 0 Many)
+
+    [<Fact>]
+        let ``take then skip where``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where(p.PersonName = "john")
+                take 20
+                skip 5
+            }
+
+        let sql = stringPersonSelectFrom + " WHERE ((T.`PersonName` <=> @p1)) LIMIT 15 OFFSET 5"
+
+        AreEqualExpression q sql [
+            {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
+        ] (personSelectType Many)
+
+    [<Fact>]
     let ``minBy``() =
         let q = fun (persons : IQueryable<Person>) -> 
             query {
@@ -1515,12 +1629,6 @@ module QueryGenTest =
 //|> printfn "Third number is %d"
 //
 //query {
-//    for student in db.Student do
-//    skip 1
-//    }
-//|> Seq.iter (fun student -> printfn "StudentID = %d" student.StudentID)
-//
-//query {
 //    for number in data do
 //    skipWhile (number < 3)
 //    select number
@@ -1532,13 +1640,6 @@ module QueryGenTest =
 //   sumBy student.StudentID
 //   }
 //|> printfn "Sum of student IDs: %d" 
-//
-//query {
-//   for student in db.Student do
-//   select student
-//   take 2
-//   }
-//|> Seq.iter (fun student -> printfn "StudentID = %d" student.StudentID)
 //
 //query {
 //    for number in data do
