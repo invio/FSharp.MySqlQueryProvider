@@ -1,3 +1,6 @@
+### 1.0.5 - January 05 2017
+* Adding skip and take to the query translator along with including filtering for C# methods of Single SingleOrDefault First FirstOrDefault.
+
 ### 1.0.4 - January 05 2017
 * Setting DateTimeKind to Utc for dates retrieved from the database.
 
