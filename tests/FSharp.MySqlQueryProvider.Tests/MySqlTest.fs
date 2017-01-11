@@ -1303,7 +1303,7 @@ module QueryGenTest =
         AreEqualExpression q "SELECT T.`PersonId` FROM `Person` AS T LIMIT 15 OFFSET 5" [] (intSelect 0 Many)
 
     [<Fact>]
-        let ``take then skip where``() =
+    let ``take then skip where``() =
         let q = fun (persons : IQueryable<Person>) ->
             query {
                 for p in persons do
