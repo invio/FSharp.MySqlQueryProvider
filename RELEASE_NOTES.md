@@ -1,4 +1,4 @@
-### 1.0.6 - January 05 2017
+### 1.0.6 - April 17 2017
 * Updating to Net Core 1.1.
 * Fixing exists clause and csharp any statement by fixing up readBool.
 
