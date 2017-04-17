@@ -1,3 +1,7 @@
+### 1.0.6 - January 05 2017
+* Updating to Net Core 1.1.
+* Fixing exists clause and csharp any statement by fixing up readBool.
+
 ### 1.0.5 - January 05 2017
 * Adding skip and take to the query translator along with including filtering for C# methods of Single SingleOrDefault First FirstOrDefault.
 
