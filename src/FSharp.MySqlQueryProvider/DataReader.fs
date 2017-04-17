@@ -73,12 +73,20 @@ let readDateTime (value : obj) =
     let dateTime = value :?> System.DateTime
     System.DateTime.SpecifyKind(dateTime, System.DateTimeKind.Utc) :> obj
 
-let readBool (value : obj) = 
-    match value with 
-    | :? int as i -> 
+let rec readBool (value : obj) =
+    match value with
+    | :? bigint as i ->
+        readBool ((sbyte i) :> obj)
+    | :? int64 as i ->
+        readBool ((sbyte i) :> obj)
+    | :? int as i ->
+        readBool ((sbyte i) :> obj)
+    | :? int16 as i ->
+        readBool ((sbyte i) :> obj)
+    | :? sbyte as i ->
         match i with 
-        | 0 -> false :> obj
-        | 1 -> true :> obj
+        | 0y -> false :> obj
+        | 1y -> true :> obj
         | i -> failwithf "not a bit %i" i
     | :? bool as b -> b :> obj
     | x -> failwithf "unexpected type %s" (x.GetType().FullName)

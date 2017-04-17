@@ -991,7 +991,7 @@ module QueryGenTest =
                 exists(p.PersonName = "john")
             }
 
-        let sql = "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
+        let sql = "SELECT COUNT(1) > 0 FROM `Person` AS T WHERE ((T.`PersonName` <=> @p1))"
 
         AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
@@ -1006,7 +1006,7 @@ module QueryGenTest =
                 contains 11
             }
         
-        AreEqualExpression q "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE ((T.`PersonId` = @p1))" [
+        AreEqualExpression q "SELECT COUNT(1) > 0 FROM `Person` AS T WHERE ((T.`PersonId` = @p1))" [
             {Name="@p1"; Value=11; DbType = MySqlDbType.Int32}
         ] (simpleOneSelect typedefof<bool> 0)
 
@@ -1049,7 +1049,7 @@ module QueryGenTest =
                 contains 11
             }
 
-        let sql = "SELECT CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END FROM `Person` AS T WHERE (((T.`PersonName` <=> @p1) AND (T.`PersonId` = @p2)))"
+        let sql = "SELECT COUNT(1) > 0 FROM `Person` AS T WHERE (((T.`PersonName` <=> @p1) AND (T.`PersonId` = @p2)))"
         
         AreEqualExpression q sql [
             {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}

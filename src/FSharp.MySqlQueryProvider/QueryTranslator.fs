@@ -452,7 +452,7 @@ module QueryTranslator =
                                         ["COUNT(*) "], [], (Some (createConstructionInfoForType 0 typedefof<int> Single))
                                     | None -> 
                                         if contains.IsSome || any.IsSome then
-                                            ["CASE WHEN COUNT(*) > 0 THEN CAST(1 AS BINARY) ELSE CAST(0 AS BINARY) END "], [] , (Some (createConstructionInfoForType 0 typedefof<bool> Single))
+                                            ["COUNT(1) > 0 "], [] , (Some (createConstructionInfoForType 0 typedefof<bool> Single))
                                         else if sum.IsSome then
                                             let sum = sum.Value
                                             let l = getLambda(sum)
