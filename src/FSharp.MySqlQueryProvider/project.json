@@ -24,7 +24,7 @@
     }
   },
   "tools": {
-    "dotnet-compile-fsc":"1.0.0-preview2-*"
+    "dotnet-compile-fsc":"1.0.0-preview2.1-*"
   },
   "tooling": {
     "defaultNamespace": "FSharp.MySqlQueryProvider"
@@ -36,7 +36,7 @@
   "frameworks": {
     "netstandard1.6": {
       "dependencies": {
-        "FSharp.Core": "4.0.1.7-alpha",
+        "FSharp.Core": "4.1.12",
         "NETStandard.Library": {
           "type": "platform",
           "version": "1.6.1"

@@ -19,7 +19,7 @@
   "tools": {
     "dotnet-compile-fsc": {
       "imports": "dnxcore50",
-      "version": "1.0.0-preview2-*"
+      "version": "1.0.0-preview2.1-*"
     }
   },
   "dependencies": {
@@ -42,10 +42,10 @@
   "testRunner": "xunit",
 
   "frameworks": {
-    "netcoreapp1.0": {
+    "netcoreapp1.1": {
       "dependencies": {
         "Microsoft.NETCore.App": "1.1.0",
-        "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-160629"
+        "Microsoft.FSharp.Core.netcore": "1.0.0-rc-170316-0"
       },
       "imports": [ "netstandard1.1", "netstandard1.6", "portable-net45+win8+wp8+wpa81" ]
     }
