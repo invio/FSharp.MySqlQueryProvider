@@ -35,15 +35,21 @@ type MySqlQueryProvider ( connection : MySqlConnection ) =
         command :> System.Data.IDbCommand, ctor
     
     override __.Execute expression =
-        try
-            let cmd, ctorInfo = translate connection expression
+        let cmd, ctorInfo =
+            try
+                translate connection expression
+            with
+            | e ->
+                printfn "Exception during translate: %s" (e.ToString())
+                reraise ()
 
+        try
             use reader = cmd.ExecuteReader()
             let res = DataReader.read reader ctorInfo
             res
         with 
         | e -> 
-            printfn "Exception during query Execute: %s" (e.ToString())
+            printfn "Exception during query: %s \nExecute: %s" cmd.CommandText (e.ToString())
             reraise ()
 
 /// <summary>
