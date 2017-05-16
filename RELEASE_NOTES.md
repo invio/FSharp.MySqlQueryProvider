@@ -1,3 +1,7 @@
+### 1.0.7 - May 16 2017
+* Adding query text in exception message when an execute fails.
+* Adding fixing SQL for when no items are in an IN statement and just using FALSE in it's place.
+
 ### 1.0.6 - April 17 2017
 * Updating to Net Core 1.1.
 * Fixing exists clause and csharp any statement by fixing up readBool.
