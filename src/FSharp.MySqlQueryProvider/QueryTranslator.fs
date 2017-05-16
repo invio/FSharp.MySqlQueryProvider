@@ -721,7 +721,7 @@ module QueryTranslator =
                                 let count = queryParams.Count()
 
                                 if count = 0 then
-                                    Some (colQ @ [" IN ()"], colP, colC)
+                                    Some (["FALSE"], colP, colC)
                                 else
                                     let inStatement =
                                         queryParams

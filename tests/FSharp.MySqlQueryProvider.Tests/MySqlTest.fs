@@ -744,7 +744,7 @@ module QueryGenTest =
                 select p
             }
 
-        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (T.`PersonId` IN ())" [] (personSelect)
+        AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (FALSE)" [] (personSelect)
 
 
     [<Fact>]
