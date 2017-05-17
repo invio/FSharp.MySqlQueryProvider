@@ -798,6 +798,22 @@ module QueryGenTest =
 
         AreEqualDeleteOrSelectExpression q stringPersonSelect "FROM `Person` AS T WHERE (FALSE)" [] (personSelect)
 
+    [<Fact>]
+    let ``where int empty list contains or some other expression``() =
+        let ids : int list = []
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where (ids.Contains(p.PersonId) || p.PersonName = "john")
+                select p
+            }
+
+        let nonSelectSql = "FROM `Person` AS T WHERE ((FALSE OR (T.`PersonName` <=> @p1)))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
+            {Name="@p1"; Value="john"; DbType = MySqlDbType.VarChar}
+        ] (personSelect)
+
 
     [<Fact>]
     let ``where int list contains``() =
