@@ -1,3 +1,7 @@
+### 1.0.8 - May 17 2017
+* Adding bitwise operation support for &, |, ^.
+* Adding another test for Empty List with the way around an empty list.
+
 ### 1.0.7 - May 16 2017
 * Adding query text in exception message when an execute fails.
 * Adding fixing SQL for when no items are in an IN statement and just using FALSE in it's place.
