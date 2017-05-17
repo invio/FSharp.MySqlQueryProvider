@@ -177,19 +177,6 @@ let unionExactlyOneCaseOneField t =
             fields |> Seq.exactlyOne
 
 /// <summary>
-/// Gets the underlying type for fsharp types
-/// </summary>
-/// <param name="t"></param>
-let rec unwrapType (t : System.Type) = 
-    if isOption t then
-        t.GetTypeInfo().GetGenericArguments() |> Seq.head |> unwrapType
-    else if isNullable t then
-        Nullable.GetUnderlyingType(t) |> unwrapType
-    else if t |> FSharpType.IsUnion then
-        (unionExactlyOneCaseOneField t).PropertyType |> unwrapType
-    else
-        t
-/// <summary>
 /// Create a prepared parameter
 /// </summary>
 /// <param name="columnIndex"></param>

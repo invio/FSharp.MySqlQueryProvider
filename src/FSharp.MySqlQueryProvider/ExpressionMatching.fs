@@ -4,6 +4,7 @@ open System.Collections
 open System.Collections.Generic
 open System.Linq.Expressions
 open System.Reflection
+open FSharp.MySqlQueryProvider.DataReader
 
 type private et = ExpressionType
 
@@ -100,9 +101,9 @@ let (|Conditional|_|) (e : Expression) =
 let (|Constant|_|) (e : Expression) =
     compare e et.Constant |> cast<ConstantExpression>
 let (|Convert|_|) (e : Expression) =
-    compare e et.Convert
+    compare e et.Convert |> cast<UnaryExpression>
 let (|ConvertChecked|_|) (e : Expression) =
-    compare e et.ConvertChecked
+    compare e et.ConvertChecked |> cast<UnaryExpression>
 let (|DebugInfo|_|) (e : Expression) =
     compare e et.DebugInfo
 let (|Decrement|_|) (e : Expression) =
@@ -246,3 +247,40 @@ let isEnumerableExpression expression =
     match expression with
     | CallIEnumerable(m, pi, args) -> Some (m, pi, args)
     | _ -> None
+
+let isBinaryOperation (expression : BinaryExpression) =
+    let isBinaryOperationTypeCode =
+        function
+            | System.TypeCode.Byte
+            | System.TypeCode.Decimal
+            | System.TypeCode.Double
+            | System.TypeCode.Int16
+            | System.TypeCode.Int32
+            | System.TypeCode.Int64
+            | System.TypeCode.SByte
+            | System.TypeCode.Single
+            | System.TypeCode.UInt16
+            | System.TypeCode.UInt32
+            | System.TypeCode.UInt64 -> true
+            | _ -> false
+    let isBinaryOperationType t =
+        let t = unwrapType t
+        isBinaryOperationTypeCode (System.Type.GetTypeCode(t))
+
+    let rec isBinaryOperationExpression =
+        function
+            | Convert u -> isBinaryOperationExpression u.Operand
+            | Constant c -> isBinaryOperationType c.Type
+            | MemberAccess m ->
+                let memberType =
+                    match m.Member.MemberType with
+                        | MemberTypes.Field -> Some ((m.Member :?> FieldInfo).FieldType)
+                        | MemberTypes.Property -> Some ((m.Member :?> PropertyInfo).PropertyType)
+                        | _ -> None
+                match memberType with
+                    | Some t -> isBinaryOperationType t
+                    | None -> false
+            | Call m -> isBinaryOperationType m.Method.ReturnType
+            | (e: Expression) -> false
+
+    (isBinaryOperationExpression expression.Left) && (isBinaryOperationExpression expression.Right)

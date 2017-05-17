@@ -751,10 +751,21 @@ module QueryTranslator =
                 | Not n ->
                     let sql, parameters, ctor = map(n.Operand)
                     Some ([" NOT "] @ sql, parameters, ctor) 
-                | And e -> bin e "AND"
+                | And e ->
+                    let sqlOperator =
+                        match isBinaryOperation e with
+                            | true -> "&"
+                            | false -> "AND"
+                    bin e sqlOperator
                 | AndAlso e -> bin e "AND"
-                | Or e -> bin e "OR"
+                | Or e ->
+                    let sqlOperator =
+                        match isBinaryOperation e with
+                            | true -> "|"
+                            | false -> "OR"
+                    bin e sqlOperator
                 | OrElse e -> bin e "OR"
+                | ExclusiveOr e -> bin e "^"
                 | Equal e -> bin e "<=>"
                 | NotEqual e ->
                     let result = (bin e "<=>")

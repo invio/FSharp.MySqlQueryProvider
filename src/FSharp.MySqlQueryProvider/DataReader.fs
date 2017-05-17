@@ -69,6 +69,36 @@ let isEnumType (t : System.Type) =
     let ti = t.GetTypeInfo()
     ti.IsEnum
 
+/// <summary>
+/// Assert that a union case has exactly one field, then return its Reflection.PropertyInfo
+/// </summary>
+/// <param name="t"></param>
+let unionExactlyOneCaseOneField t =
+    let cases = FSharpType.GetUnionCases t
+    if cases |> Seq.length > 1 then
+        failwith "Multi case unions are not supported"
+    else
+        let case = cases |> Seq.exactlyOne
+        let fields = case.GetFields()
+        if fields |> Seq.length > 1 then
+            failwith "Only one field allowed on union case"
+        else
+            fields |> Seq.exactlyOne
+
+/// <summary>
+/// Gets the underlying type for fsharp types
+/// </summary>
+/// <param name="t"></param>
+let rec unwrapType (t : System.Type) =
+    if isOption t then
+        t.GetTypeInfo().GetGenericArguments() |> Seq.head |> unwrapType
+    else if isNullable t then
+        Nullable.GetUnderlyingType(t) |> unwrapType
+    else if t |> FSharpType.IsUnion then
+        (unionExactlyOneCaseOneField t).PropertyType |> unwrapType
+    else
+        t
+
 let readDateTime (value : obj) =
     let dateTime = value :?> System.DateTime
     System.DateTime.SpecifyKind(dateTime, System.DateTimeKind.Utc) :> obj

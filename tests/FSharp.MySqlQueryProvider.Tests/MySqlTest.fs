@@ -652,6 +652,58 @@ module QueryGenTest =
         ] (personSelect)
 
     [<Fact>]
+    let ``where with binary and via integers``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where(((p.VersionNo &&& 1) = 1) && ((p.VersionNo &&& 2) <> 2))
+                select p
+            }
+
+        let nonSelectSql = "FROM `Person` AS T WHERE ((((T.`VersionNo` & @p1) <=> @p2) AND  NOT ((T.`VersionNo` & @p3) <=> @p4)))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
+            {Name="@p1"; Value=1; DbType = MySqlDbType.Int32}
+            {Name="@p2"; Value=1; DbType = MySqlDbType.Int32}
+            {Name="@p3"; Value=2; DbType = MySqlDbType.Int32}
+            {Name="@p4"; Value=2; DbType = MySqlDbType.Int32}
+        ] (personSelect)
+
+    [<Fact>]
+    let ``where with binary or via integers``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where(((p.VersionNo ||| 1) = 1) || ((p.VersionNo ||| 2) <> 2))
+                select p
+            }
+
+        let nonSelectSql = "FROM `Person` AS T WHERE ((((T.`VersionNo` | @p1) <=> @p2) OR  NOT ((T.`VersionNo` | @p3) <=> @p4)))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
+            {Name="@p1"; Value=1; DbType = MySqlDbType.Int32}
+            {Name="@p2"; Value=1; DbType = MySqlDbType.Int32}
+            {Name="@p3"; Value=2; DbType = MySqlDbType.Int32}
+            {Name="@p4"; Value=2; DbType = MySqlDbType.Int32}
+        ] (personSelect)
+
+    [<Fact>]
+    let ``where with exclusive or``() =
+        let q = fun (persons : IQueryable<Person>) ->
+            query {
+                for p in persons do
+                where(((p.VersionNo ^^^ 1) = 1))
+                select p
+            }
+
+        let nonSelectSql = "FROM `Person` AS T WHERE (((T.`VersionNo` ^ @p1) <=> @p2))"
+
+        AreEqualDeleteOrSelectExpression q stringPersonSelect nonSelectSql [
+            {Name="@p1"; Value=1; DbType = MySqlDbType.Int32}
+            {Name="@p2"; Value=1; DbType = MySqlDbType.Int32}
+        ] (personSelect)
+
+    [<Fact>]
     let ``where null``() =
         let q = fun (persons : IQueryable<Person>) -> 
             query {
