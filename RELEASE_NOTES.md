@@ -1,3 +1,6 @@
+### 1.0.9 - February 11 2018
+* Upgrade Invio.Extensions.Reflection to v1.0.8
+
 ### 1.0.8 - May 17 2017
 * Adding bitwise operation support for &, |, ^.
 * Adding another test for Empty List with the way around an empty list.
