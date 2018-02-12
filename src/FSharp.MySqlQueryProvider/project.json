@@ -30,7 +30,7 @@
     "defaultNamespace": "FSharp.MySqlQueryProvider"
   },
   "dependencies": {
-    "Invio.Extensions.Reflection": "1.0.1",
+    "Invio.Extensions.Reflection": "1.0.8",
     "MySql.Data": "7.0.5-IR21"
   },
   "frameworks": {
